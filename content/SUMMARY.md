@@ -39,7 +39,7 @@
     - [Logging Entry Types](./logging-entry-types.md)
     - [Logger Delegation](./logger-delegation.md)
 
-# Related Work
+# Related Concepts
 
 - [Object-Oriented Programming](./object-oriented-programming.md)
 - [Dependency Injection](./dependency-injection.md)
