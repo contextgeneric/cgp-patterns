@@ -13,9 +13,10 @@
 - [Auto Traits](auto-traits.md)
 - [Impl-side Dependencies](impl-side-dependencies.md)
 - [Provider Traits](provider-traits.md)
-- [Delegation](delegation.md)
 - [Auto Consumer Impl](auto-consumer-impl.md)
-- [Component Macros](component-macros.md)
+- [Delegation](delegation.md)
+- [Component](component.md)
+    - [Component Macros](component-macros.md)
 - [Check Traits](check-traits.md)
 
 # Design Patterns

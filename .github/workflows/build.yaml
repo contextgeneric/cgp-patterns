@@ -37,7 +37,7 @@ jobs:
       - name: Build with mdBook
         run: |
             nix shell .#mdbook -c \
-                mdbook build
+                mdbook build && mdbook test
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
