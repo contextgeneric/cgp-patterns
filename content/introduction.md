@@ -18,6 +18,10 @@ to more basic programming techniques in Rust.
 
 A separate book will be written in the future, to provide beginner-friendly tutorials for learning context-generic programming.
 
+For brievity, this book also does not cover motivation or concrete examples of _why_ you should
+learn and use context-generic programming. We will cover that in blog posts, and a separate book
+that covers real world use of CGP.
+
 ## Chapter Outlines
 
 The first section of this book, _Core Concepts_, will introduce core concepts of CGP.
