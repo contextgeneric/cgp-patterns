@@ -50,6 +50,10 @@ In the example above, we define a `HasName` trait that provides a `name` method.
 implement `HasName`. Inside the function body, we call the `name` method, and print out the greeting
 of that name.
 
+Notice that in this example, we are able to implement `greet` _before_ we have any concrete implementation
+of `HasName`. Compared to before, `greet` is now _decoupled_ from the `Person` type, thus making
+our code more modular.
+
 In CGP, this new version of `greet` is considered a _context-generic_ consumer, as it is able to _generically_
 consume the `HasName::name` method from any `Context` type that implements `HasName`.
 
