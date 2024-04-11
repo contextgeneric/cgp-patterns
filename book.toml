@@ -10,7 +10,3 @@ edition = "2021"
 
 [build]
 create-missing = false
-
-
-[output.html]
-default-theme = "rust"
