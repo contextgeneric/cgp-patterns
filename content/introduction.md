@@ -40,10 +40,10 @@ such as the similarity and differences of context-generic programming as compare
 
 ## Contribution
 
-This book is open sourced under the MIT license on [GitHub](https://github.com/contextgeneric/context-generic-programming-patterns).
+This book is open sourced under the MIT license on [GitHub](https://github.com/contextgeneric/cgp-patterns).
 
-Anyone is welcome to contribute by submitting [pull requests](https://github.com/contextgeneric/context-generic-programming-patterns/pulls)
+Anyone is welcome to contribute by submitting [pull requests](https://github.com/contextgeneric/cgp-patterns/pulls)
 for grammatical correction, content improvement, or adding new design patterns.
 
-A [GitHub Discussions](https://github.com/contextgeneric/context-generic-programming-patterns/discussions) forum is available for readers
+A [GitHub Discussions](https://github.com/contextgeneric/cgp-patterns/discussions) forum is available for readers
 to ask questions or have discussions for topics covered in this book.
