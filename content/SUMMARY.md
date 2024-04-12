@@ -10,7 +10,7 @@
 
 # Basic Patterns
 
-- [Auto Traits](auto-traits.md)
+- [Blanket Implementations](blanket-implementations.md)
 - [Impl-side Dependencies](impl-side-dependencies.md)
 - [Provider Traits](provider-traits.md)
 - [Auto Consumer Impl](auto-consumer-impl.md)
