@@ -67,11 +67,18 @@ person.greet();
 As shown above, we are able to call `person.greet()` without having a context-specific
 implementation of `CanGreet` for `Person`.
 
+## Extension Traits
+
 The use of blanket trait implementation is commonly found in many Rust libraries today.
 For example, [`Itertools`](https://docs.rs/itertools/latest/itertools/trait.Itertools.html)
 provides a blanket implementation for any context that implements `Iterator`.
 Another example is [`StreamExt`](https://docs.rs/futures/latest/futures/stream/trait.StreamExt.html),
 which is implemented for any context that implements `Stream`.
+
+Traits such as `Itertools` and `StreamExt` are sometimes known as _extension traits_. This is
+because the purpose of the trait is to _extend_ the behavior of existing types, without having
+to own the type or base traits. While the use of extension traits is a common use case for
+blanket implementations, there are other ways we can make use of blanket implementations.
 
 ## Overriding Blanket Implementations
 
@@ -215,6 +222,6 @@ Although a context many define its own context-specific provider to override the
 provider, it would face other limitations such as not being able to implement other traits
 that may cause a conflict.
 
-In practice, we consider that blanket implementations allow for _singular context-generic provider_
+In practice, we consider that blanket implementations allow for _a singule context-generic provider_
 to be defined. In future chapters, we will look at how to relax the singular constraint,
 to make it possible to allow _multiple_ context-generic or context-specific providers to co-exist.
