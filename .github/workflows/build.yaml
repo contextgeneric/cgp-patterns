@@ -41,8 +41,10 @@ jobs:
 
       - name: Run tests
         run: |
+            cargo clean
+            cargo test
             nix shell .#mdbook -c \
-              mdbook test
+              mdbook test -L target/debug/deps
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

@@ -73,11 +73,12 @@ pub trait CanFormatItems {
 
 impl<Context> CanFormatItems for Context
 where
-    Context: for<'a> IntoIterator<Item:Display>,
+    for<'a> &'a Context: IntoIterator,
+    for<'a> <&'a Context as IntoIterator>::Item: Display,
 {
     fn format_items(&self) -> String
     {
-        items.into_iter().join(", ")
+        self.into_iter().join(", ")
     }
 }
 ```
@@ -97,11 +98,12 @@ where
 #
 # impl<Context> CanFormatItems for Context
 # where
-#     Context: for<'a> IntoIterator<Item:Display>,
+#     for<'a> &'a Context: IntoIterator,
+#     for<'a> <&'a Context as IntoIterator>::Item: Display,
 # {
 #     fn format_items(&self) -> String
 #     {
-#         items.into_iter().join(", ")
+#         self.into_iter().join(", ")
 #     }
 # }
 
