@@ -218,9 +218,40 @@ to choose from.
 In this chapter, we make use of a very simplified example of formatting strings to
 demonstrate the use case of provider traits. Our example may seem a bit redundant,
 as it does not simplify the code much as compared to directly using `format!()`
-to format the string with either `Debug` or `Display`.
+to format the string with either `Debug` or `Display`. However, the provider trait
+allows us to also define providers that format a context in other ways, such as
+by serializing it as JSON:
 
-However, similar pattern can be more useful in more complex use cases, such as
+```rust
+# extern crate serde;
+# extern crate serde_json;
+#
+# pub trait StringFormatter<Context> {
+#     fn format_string(context: &Context) -> String;
+# }
+#
+use serde::Serialize;
+use serde_json::to_string;
+
+pub struct FormatAsJson;
+
+impl<Context> StringFormatter<Context> for FormatAsJson
+where
+    Context: Serialize,
+{
+    fn format_string(context: &Context) -> String {
+        to_string(context).unwrap()
+    }
+}
+```
+
+As a side note, notice that the JSON implementation above uses an unwrap to bypass
+serialization failure. A better design for the `format_string` method would be to
+make it fallable and return a `Result`. However, since we will be covering
+_context-generic error handling_ in [later chapters](./error-handling.md), we would
+ignore error handling here for simplicity sake.
+
+This use of provider traits can also be more useful in more complex use cases, such as
 implementing [`Serialize`](https://docs.rs/serde/latest/serde/trait.Serialize.html),
 or even the `Display` trait itself. If we were to implement these traits using CGP,
 we would also define provider traits such as follows:
