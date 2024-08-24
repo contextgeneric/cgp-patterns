@@ -212,3 +212,37 @@ if there are multiple providers to choose from. In the next chapter, we will loo
 at how we can link a provider trait with a consumer trait, so that we can use back
 the simple `person.format_string()` syntax without needing to know which provider
 to choose from.
+
+## Beyond String Formatting
+
+In this chapter, we make use of a very simplified example of formatting strings to
+demonstrate the use case of provider traits. Our example may seem a bit redundant,
+as it does not simplify the code much as compared to directly using `format!()`
+to format the string with either `Debug` or `Display`.
+
+However, similar pattern can be more useful in more complex use cases, such as
+implementing [`Serialize`](https://docs.rs/serde/latest/serde/trait.Serialize.html),
+or even the `Display` trait itself. If we were to implement these traits using CGP,
+we would also define provider traits such as follows:
+
+```rust
+# extern crate serde;
+#
+use core::fmt;
+use serde::Serializer;
+
+pub trait ProvideSerialize<Context> {
+    fn serialize<S: Serializer>(context: &Context, serializer: S) -> Result<S::Ok, S::Error>;
+}
+
+pub trait ProvideFormat<Context> {
+    fn fmt(context: &Context, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error>;
+}
+```
+
+As we can see above, we can define provider traits for any existing traits by replacing
+the `Self` type with an explicit `Context` type. In this chapter, we would not be covering
+the details on how to use CGP and provider traits to simplify formatting and serialization
+implementations, as that is beyond the current scope. Suffice to say, as we go through
+later chapters, it will become clearer on how having provider traits can impact us on
+thinking about how to structure and implement modular code.
