@@ -251,6 +251,11 @@ make it fallable and return a `Result`. However, since we will be covering
 _context-generic error handling_ in [later chapters](./error-handling.md), we would
 ignore error handling here for simplicity sake.
 
+If we recall from the [previous chapter](./impl-side-dependencies.md), the
+`CanFormatIter` trait in fact has the same method signature as `StringFormatter`.
+So we can refactor the code from the previous chapter, and turn it into a
+context-generic provider that works for any iterable context like `Vec`.
+
 This use of provider traits can also be more useful in more complex use cases, such as
 implementing [`Serialize`](https://docs.rs/serde/latest/serde/trait.Serialize.html),
 or even the `Display` trait itself. If we were to implement these traits using CGP,

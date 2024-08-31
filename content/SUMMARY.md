@@ -14,9 +14,8 @@
 - [Impl-side Dependencies](impl-side-dependencies.md)
 - [Provider Traits](provider-traits.md)
 - [Linking Consumers with Providers](consumer-provider-link.md)
-- [Delegation](delegation.md)
-- [Component](component.md)
-    - [Component Macros](component-macros.md)
+- [Provider Delegation](provider-delegation.md)
+- [Component Macros](component-macros.md)
 - [Check Traits](check-traits.md)
 
 # Design Patterns
