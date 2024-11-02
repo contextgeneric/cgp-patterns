@@ -4,6 +4,8 @@ This book covers the design patterns for _context-generic programming_ (CGP),
 a new programming paradigm for Rust that allows strongly-typed components
 to be implemented and composed in a modular, generic, and type-safe way.
 
+## What is Context-Generic Programming
+
 At its core, CGP makes use of Rust's trait system to build generic _interfaces_
 decouple code that _consumes_ an interface from code that _implements_ an
 interface. Through this decoupling, code can be written to be generic over
