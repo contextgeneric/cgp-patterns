@@ -1,10 +1,10 @@
 # Provider Delegation
 
-In the previous chapter, we learned to make use of the `HasComponent` trait
+In the previous chapter, we learned to make use of the `HasComponents` trait
 to define a blanket implementation for a consumer trait like `CanFormatString`,
 so that a context would automatically delegate the implementation to a provider
-trait like `StringFormatter`. However, because there can only be one `Component`
-type defined for `HasComponent`, this means that the given provider needs to
+trait like `StringFormatter`. However, because there can only be one `Components`
+type defined for `HasComponents`, this means that the given provider needs to
 implement _all_ provider traits that we would like to use for the context.
 
 In this chapter, we will learn to combine multiple providers that each implements
@@ -526,7 +526,7 @@ the component delegation, making it as simple as one line to implement such dele
 ## Switching Provider Implementations
 
 With the given examples, some readers may question why is there a need to define
-multiple providers for the JSON implementation, when we can just define one provide
+multiple providers for the JSON implementation, when we can just define one provider
 struct and implement both provider traits for it.
 
 The use of two providers in this chapter is mainly used as demonstration on how
