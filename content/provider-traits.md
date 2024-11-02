@@ -223,13 +223,15 @@ allows us to also define providers that format a context in other ways, such as
 by serializing it as JSON:
 
 ```rust
+# extern crate anyhow;
 # extern crate serde;
 # extern crate serde_json;
 #
 # pub trait StringFormatter<Context> {
-#     fn format_string(context: &Context) -> String;
+#     fn format_string(context: &Context) -> Result<String, Error>;
 # }
 #
+use anyhow::Error;
 use serde::Serialize;
 use serde_json::to_string;
 
@@ -239,17 +241,22 @@ impl<Context> StringFormatter<Context> for FormatAsJson
 where
     Context: Serialize,
 {
-    fn format_string(context: &Context) -> String {
-        to_string(context).unwrap()
+    fn format_string(context: &Context) -> Result<String, Error> {
+        Ok(to_string(context)?)
     }
 }
 ```
 
-As a side note, notice that the JSON implementation above uses an unwrap to bypass
-serialization failure. A better design for the `format_string` method would be to
-make it fallable and return a `Result`. However, since we will be covering
-_context-generic error handling_ in [later chapters](./error-handling.md), we would
-ignore error handling here for simplicity sake.
+To allow for error handling, we update the method signature of `format_string` to
+return a `Result`, with [`anyhow::Error`](https://docs.rs/anyhow/latest/anyhow/struct.Error.html)
+being used as a general error type.
+We will also be covering better ways to handle errors in a context-generic way in
+in [later chapters](./error-handling.md).
+
+If we recall from the [previous chapter](./impl-side-dependencies.md), the
+`CanFormatIter` trait in fact has the same method signature as `StringFormatter`.
+So we can refactor the code from the previous chapter, and turn it into a
+context-generic provider that works for any iterable context like `Vec`.
 
 This use of provider traits can also be more useful in more complex use cases, such as
 implementing [`Serialize`](https://docs.rs/serde/latest/serde/trait.Serialize.html),

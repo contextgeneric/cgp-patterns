@@ -1,9 +1,28 @@
 # Introduction
 
-This book covers the design patterns for _context-generic programming_ (CGP), a new programming paradigm for Rust.
+This book covers the design patterns for _context-generic programming_ (CGP),
+a new programming paradigm for Rust that allows strongly-typed components
+to be implemented and composed in a modular, generic, and type-safe way.
 
-At its core, context-generic programming allows us to write _modular_ code that are _generic_ over different _contexts_.
-Thoughout the book, we will slowly uncover what that really means.
+## What is Context-Generic Programming
+
+At its core, CGP makes use of Rust's trait system to build generic _interfaces_
+decouple code that _consumes_ an interface from code that _implements_ an
+interface. Through this decoupling, code can be written to be generic over
+any context, and then be wired to be used on a concrete context by writing
+few lines of code. CGP makes use of Rust's strong type system to help ensure
+that any such wiring is _type-safe_, catching any unsatisfied dependencies
+as compile-time errors.
+
+CGP shares some similarities with other modular programming patterns, such as
+OCaml modules, Scala implicits, mixins, and dependency injection. Compared to
+these other patterns, CGP has a unique advantage that it enables high modularity
+while also being type-safe and concise. With Rust as its host language, CGP
+also allows high-performance and low-level code to be written in a modular
+way, without requiring complex runtime support.
+
+Thoughout this book, we will slowly understand how CGP works, and learn about
+useful design patterns that can be used in any programming situation.
 
 ## Work In Progress
 
