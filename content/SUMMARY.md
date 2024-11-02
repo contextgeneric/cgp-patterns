@@ -1,6 +1,6 @@
 # Summary
 
-[Introduction](introduction.md)
+- [Introduction](introduction.md)
 
 # Core Concepts
 
