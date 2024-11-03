@@ -211,7 +211,7 @@ where
         Ok(serde_json::to_string(context)?)
     }
 }
-#
+
 pub struct ParseFromJsonString;
 
 impl<Context> StringParser<Context> for ParseFromJsonString
@@ -272,8 +272,8 @@ of context-generic programming in Rust. Without it, programming with CGP would
 become too verbose and full of boilerplate code.
 
 On the other hand, the use of `cgp` macros makes CGP code look much more like
-programming in a _domain-specific language_ (DSL) than in regular Rust code.
-In fact, one can argue that CGP acts as a _language extension_ to the base
+programming in a _domain-specific language_ (DSL) than in regular Rust.
+In fact, one could argue that CGP acts as a _language extension_ to the base
 language Rust, and almost turn into its own programming language.
 
 In a way, implementing CGP in Rust is slightly similar to implementing
@@ -284,8 +284,8 @@ a core language feature in future programming languages.
 Perhaps one day, there might be an equivalent of C++ to replace CGP-on-Rust.
 Or perhaps more ideally, the core constructs of CGP would one day directly
 supported as a core language feature in Rust.
-But until that happens, the `cgp` crate serves as a preview of how
-context-generic programming can be done in Rust, and how it can help
+But until that happens, the `cgp` crate serves as an experimental ground on
+how context-generic programming can be done in Rust, and how it can help
 build better Rust applications.
 
 In the chapters that follow, we will make heavy use of `cgp` and its
