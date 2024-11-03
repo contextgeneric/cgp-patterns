@@ -2,8 +2,8 @@
 
 By leveraging [impl-side dependencies](./impl-side-dependencies.md), CGP providers
 are able to include additional dependencies that are not specified in the provider
-trait. We have already seen this in action in the [previous chapter](./provider-delegation.md),
-for example where the provider `FormatAsJsonString` is able to require `Context`
+trait. We have already seen this in action in the [previous chapter](./provider-delegation.md), for example,
+where the provider `FormatAsJsonString` is able to require `Context`
 to implement `Serialize`, while that is not specified anywhere in the provider
 trait `StringFormatter`.
 
@@ -22,8 +22,8 @@ try to use a consumer trait against a concrete context.
 ## Unsatisfied Dependency Errors
 
 To demonstrate how such error would arise, we would reuse the same example
-`PersonContext` as the [previous chapter](./component-macros.md#example-use).
-Consider if we made a mistake and forgot to implement `Serialize` for `PersonContext`:
+`Person` context as the [previous chapter](./component-macros.md#example-use).
+Consider if we made a mistake and forgot to implement `Serialize` for `Person`:
 
 ```rust
 # extern crate anyhow;
@@ -88,9 +88,9 @@ delegate_components! {
 }
 ```
 
-We know that `PersonContext` uses `PersonComponents` to implement `CanFormatToString`,
+We know that `Person` uses `PersonComponents` to implement `CanFormatToString`,
 and `PersonComponents` delegates the provider implementation to `FormatAsJsonString`.
-However, since `FormatAsJsonString` requires `PersonContext` to implement `Serialize`,
+However, since `FormatAsJsonString` requires `Person` to implement `Serialize`,
 without it `CanFormatToString` cannot be implemented on `PersonContext`.
 
 However, notice that the above code still compiles successfully. This is because we
