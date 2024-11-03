@@ -16,7 +16,7 @@
 - [Linking Consumers with Providers](consumer-provider-link.md)
 - [Provider Delegation](provider-delegation.md)
 - [Component Macros](component-macros.md)
-- [Check Traits](check-traits.md)
+- [Debugging Techniques](debugging-techniques.md)
 
 # Design Patterns
 

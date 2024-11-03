@@ -1,4 +1,4 @@
-# Check Traits
+# Debugging Techniques
 
 By leveraging [impl-side dependencies](./impl-side-dependencies.md), CGP providers
 are able to include additional dependencies that are not specified in the provider
@@ -19,7 +19,7 @@ are not satisfied. In other words, the impl-side provider constraints are
 enforced _lazily_ in CGP, and compile-time errors would only arise when we
 try to use a consumer trait against a concrete context.
 
-## Unsatisfied Constraint Errors
+## Unsatisfied Dependency Errors
 
 To demonstrate how such error would arise, we would reuse the same example
 `PersonContext` as the [previous chapter](./component-macros.md#example-use).
