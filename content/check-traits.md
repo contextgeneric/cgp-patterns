@@ -449,3 +449,68 @@ error[E0277]: the trait bound `Person: Serialize` is not satisfied
 
 This tells us that we have forgotten to implement `Serialize` for Person.
 We can then take our action to properly fill in the missing dependencies.
+
+## Debugging Check Traits
+
+Due to the need for check traits, the work for implementing a concrete context often
+involves wiring up the providers, and then checking that the providers and all their
+dependencies are implemented. As the number of components increase, the number of
+dependencies we need to check also increase accordingly.
+
+When encountering errors in the check traits, it often helps to comment out a large
+portion of the dependencies, to focus on resolving the errors arise from a specific
+dependency. For example, in the check trait we can temporarily check for the
+implementation of `CanFormatToString` by commenting out all other constraints as follows:
+
+```rust,ignore
+pub trait CanUsePerson:
+    Sized
+    // + Serialize
+    // + for<'a> Deserialize<'a>
+    + CanFormatToString
+    // + CanParseFromString
+{}
+```
+
+We add a dummy constaint like `Sized` in the beginning of the super traits for
+`CanUsePerson`, so that we can easily comment out individual lines and not worry
+about whether it would lead to a dangling `+` sign.
+We can then pin point the error to a specific provider, and then continue
+tracing the missing dependencies from there. We would then notice that
+`FormatAsJsonString` requires `Serialize`, which we can then update the
+commented code to:
+
+```rust,ignore
+pub trait CanUsePerson:
+    Sized
+    + Serialize
+    // + for<'a> Deserialize<'a>
+    // + CanFormatToString
+    // + CanParseFromString
+{}
+```
+
+This technique can hopefully help speed up the debugging process, and determine
+which dependency is missing.
+
+## Future Improvements
+
+The need of manual debugging using check traits is probably one of the major blockers
+for spreading CGP for wider adoption. Although it is not technically an unsolvable
+problem, it is a matter of allocating sufficient time and resource to improve the
+error messages from Rust.
+
+When the opportunity arise, we plan to eventually work on submitting pull requests
+for improving the error messages when the constraints from blanket implementations
+cannot be satisfied. This book will be updated once we get an experimental version
+of the Rust compiler working with improved error messages.
+
+We also consider exploring the option of building a custom compiler plugin similar
+to Clippy, which can be used to explain CGP-related errors in more direct ways.
+Similarly, it should not be too challenging to build IDE extensions similar to
+Rust Analyzer, which can provide more help in fixing CGP-related errors.
+
+Until improved tooling becomes available, we hope that the use of check traits
+for debugging is at least sufficient for early adopters. From this chapter onward,
+we are just starting to explore what can be done with the basic framework of CGP
+in place.
