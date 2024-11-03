@@ -2,13 +2,13 @@
 
 - [Introduction](introduction.md)
 
-# Core Concepts
+# Terminology
 
 - [Context](context.md)
 - [Consumer](consumer.md)
 - [Provider](provider.md)
 
-# Basic Patterns
+# Core Concepts
 
 - [Blanket Implementations](blanket-implementations.md)
 - [Impl-side Dependencies](impl-side-dependencies.md)
@@ -20,35 +20,43 @@
 
 # Design Patterns
 
-- [Context-Generic Providers](context-generic-providers.md)
-- [Provider Middleware](provider-middleware.md)
-- [Associated Contexts](associated-contexts.md)
-    - [Impl-side Generic Types](impl-side-generic-types.md)
-    - [Associated Type Specialization](associated-type-specialization.md)
-- [Async Generic](async-generic.md)
-- [Fully Abstract Programs](fully-abstract-programs.md)
+- [Associated Types]()
+    - [Parameterized Associated Types]()
+    - [Impl-side Generic Types]()
+    - [Associated Type Specialization]()
+    - [`HasType`]()
+- [Error Handling]()
+    - [`HasErrorType`]()
+    - [From Errors]()
+    - [`CanRaiseError`]()
+- [Provider Composition]()
+    - [Provider Middleware]()
+- [Generalized Providers]()
+    - [`WithProvider`]()
+    - [`UseContext`]()
+    - [`UseType`]()
+    - [`UseDelegate`]()
+- [Field Accessors]()
+    - [`HasField`]()
+    - [`HasFieldMut`]()
+    - [Field Macros]()
+- [Context-Generic Dispatch]()
+    - [App-Specific Associated Types]()
+- [Async Generic]()
+- [Fully Abstract Programs]()
 
 # Domain-Specific Patterns
 
-- [Error Handling](error-handling.md)
-    - [Abstract Error Types](abstract-error-types.md)
-    - [From Errors](from-errors.md)
-    - [Error Raisers](error-raisers.md)
-    - [Error Detail Types](error-detail-types.md)
-    - [Error Handler Delegation](error-handler-delegation.md)
-
-- [Logging and Telemetry](logging-and-telemetry.md)
-    - [Abstract Logger](abstract-logger.md)
-    - [Logging Entry Types](logging-entry-types.md)
-    - [Logger Delegation](logger-delegation.md)
+- [Logging and Telemetry]()
+- [Encoding]()
 
 # Related Concepts
 
-- [Object-Oriented Programming](object-oriented-programming.md)
-- [Dependency Injection](dependency-injection.md)
-- [Dynamic-Typed Programming](dynamic-typed-programming.md)
-- [Functional Programming](functional-programming.md)
-    - [New Type Wrappers](new-type-wrappers.md)
-    - [Monad](monad.md)
-    - [Algebraic Effects](algebraic-effects.md)
-- [ML Modules](ml-modules.md)
+- [Object-Oriented Programming]()
+- [Dependency Injection]()
+- [Dynamic-Typed Programming]()
+- [Functional Programming]()
+    - [New Type Wrappers]()
+    - [Monad]()
+    - [Algebraic Effects]()
+- [ML Modules]()
