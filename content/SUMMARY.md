@@ -20,35 +20,43 @@
 
 # Design Patterns
 
+- [Component Presets]()
 - [Associated Types]()
     - [Parameterized Associated Types]()
     - [Impl-side Generic Types]()
     - [Associated Type Specialization]()
     - [`HasType`]()
-- [Error Handling]()
-    - [`HasErrorType`]()
-    - [From Errors]()
-    - [`CanRaiseError`]()
-- [Provider Composition]()
-    - [Provider Middleware]()
-- [Generalized Providers]()
+- [Trait-Generic Providers]()
     - [`WithProvider`]()
     - [`UseContext`]()
     - [`UseType`]()
     - [`UseDelegate`]()
+- [Error Handling]()
+    - [`HasErrorType`]()
+    - [From Errors]()
+    - [`CanRaiseError`]()
+    - [Error Wrapping]()
+- [Provider Composition]()
+    - [Provider Middleware]()
+    - [Detached Provider]()
+- [Inner]()
 - [Field Accessors]()
     - [`HasField`]()
     - [`HasFieldMut`]()
     - [Field Macros]()
-- [Context-Generic Dispatch]()
-    - [App-Specific Associated Types]()
+- [Builder]()
+- [Dispatcher]()
+- [Generic Data Types]()
 - [Async Generic]()
 - [Fully Abstract Programs]()
 
 # Domain-Specific Patterns
 
+- [Runtime]()
 - [Logging and Telemetry]()
 - [Encoding]()
+- [Command Line Parsing]()
+- [Authentication]()
 
 # Related Concepts
 
