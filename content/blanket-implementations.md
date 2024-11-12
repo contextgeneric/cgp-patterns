@@ -222,6 +222,6 @@ Although a context many define its own context-specific provider to override the
 provider, it would face other limitations such as not being able to implement other traits
 that may cause a conflict.
 
-In practice, we consider that blanket implementations allow for _a singule context-generic provider_
+In practice, we consider that blanket implementations allow for _a singular context-generic provider_
 to be defined. In future chapters, we will look at how to relax the singular constraint,
 to make it possible to allow _multiple_ context-generic or context-specific providers to co-exist.

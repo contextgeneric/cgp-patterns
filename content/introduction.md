@@ -6,6 +6,9 @@ to be implemented and composed in a modular, generic, and type-safe way.
 
 ## What is Context-Generic Programming
 
+A high level overview of CGP is available on the [project website](https://www.contextgeneric.dev/).
+This section contains a summarized version of the overview.
+
 At its core, CGP makes use of Rust's trait system to build generic
 component _interfaces_ that decouple code that _consumes_ an interface
 from code that _implements_ an interface.
