@@ -78,19 +78,23 @@ where
 }
 ```
 
-## `derive_component` Macro
+## `cgp_component` Macro
 
 With the repetitive pattern, it makes sense that we should be able to
 just define the consumer trait, and make use of Rust macros to generate
 the remaining code. The author has published the [`cgp`](https://docs.rs/cgp)
-Rust crate that provides the `derive_component` macro that can be used for
+Rust crate that provides the `cgp_component` attribute macro that can be used for
 this purpose. Using the macro, the same code as above can be significantly
 simplified to the following:
 
 ```rust,ignore
 use cgp::prelude::*;
 
-#[derive_component(ActionPerformerComponent, ActionPerformer<Context>)]
+#[cgp_component {
+    name: ActionPerformerComponent,
+    provider: ActionPerformer,
+    context: Context,
+}]
 pub trait CanPerformAction<GenericA, GenericB, ...>:
     ConstraintA + ConstraintB + ...
 {
@@ -108,11 +112,12 @@ be used to bring all CGP constructs into scope. This includes the
 `HasComponents` and `DelegateComponent` traits, which are also provided
 by the `cgp` crate.
 
-We then use `derive_component` as an attribute proc macro, with two
-arguments given to the macro. The first argument, `ActionPerformerComponent`,
-is used to define the name type. The second argument, `ActionPerformer<Context>`,
-is used as the name for the provider trait, as well as the generic type name
-for the context.
+We then use `derive_component` as an attribute proc macro, with several
+key-value arguments given. The `name` field is used to define the component
+name type, which is called `ActionPerformerComponent`. The `provider`
+field `ActionPerformer` is used for the name for the provider trait.
+The `context` field `Context` is used for the generic type name of the
+context when used inside the provider trait.
 
 ## `delegate_components` Macro
 
