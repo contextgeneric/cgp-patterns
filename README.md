@@ -6,6 +6,9 @@
 
 This repository contains the source code for the book _Context-Generic Programming Patterns_. The published version of this book is available at https://patterns.contextgeneric.dev/.
 
+For more information about context-generic programming, check out the
+main website at https://www.contextgeneric.dev/.
+
 ## Build Instructions
 
 This book is built using [mdBook](https://rust-lang.github.io/mdBook/). Follow the [installation instructions](https://rust-lang.github.io/mdBook/guide/installation.html) to install mdBook on your machine. You can then serve a local version of the book by running:
