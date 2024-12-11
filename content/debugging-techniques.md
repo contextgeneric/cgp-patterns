@@ -35,12 +35,20 @@ Consider if we made a mistake and forgot to implement `Serialize` for `Person`:
 # use anyhow::Error;
 # use serde::{Serialize, Deserialize};
 #
-# #[derive_component(StringFormatterComponent, StringFormatter<Context>)]
+# #[cgp_component {
+#    name: StringFormatterComponent,
+#    provider: StringFormatter,
+#    context: Context,
+# }]
 # pub trait CanFormatToString {
 #     fn format_to_string(&self) -> Result<String, Error>;
 # }
 #
-# #[derive_component(StringParserComponent, StringParser<Context>)]
+# #[cgp_component {
+#    name: StringParserComponent,
+#    provider: StringParser,
+#    context: Context,
+# }]
 # pub trait CanParseFromString: Sized {
 #     fn parse_from_string(raw: &str) -> Result<Self, Error>;
 # }
@@ -108,12 +116,20 @@ call `format_to_string`, and check if it works:
 # use anyhow::Error;
 # use serde::{Serialize, Deserialize};
 #
-# #[derive_component(StringFormatterComponent, StringFormatter<Context>)]
+# #[cgp_component {
+#    name: StringFormatterComponent,
+#    provider: StringFormatter,
+#    context: Context,
+# }]
 # pub trait CanFormatToString {
 #     fn format_to_string(&self) -> Result<String, Error>;
 # }
 #
-# #[derive_component(StringParserComponent, StringParser<Context>)]
+# #[cgp_component {
+#    name: StringParserComponent,
+#    provider: StringParser,
+#    context: Context,
+# }]
 # pub trait CanParseFromString: Sized {
 #     fn parse_from_string(raw: &str) -> Result<Self, Error>;
 # }
@@ -246,12 +262,20 @@ defined as follows:
 # use anyhow::Error;
 # use serde::{Serialize, Deserialize};
 #
-# #[derive_component(StringFormatterComponent, StringFormatter<Context>)]
+# #[cgp_component {
+#    name: StringFormatterComponent,
+#    provider: StringFormatter,
+#    context: Context,
+# }]
 # pub trait CanFormatToString {
 #     fn format_to_string(&self) -> Result<String, Error>;
 # }
 #
-# #[derive_component(StringParserComponent, StringParser<Context>)]
+# #[cgp_component {
+#    name: StringParserComponent,
+#    provider: StringParser,
+#    context: Context,
+# }]
 # pub trait CanParseFromString: Sized {
 #     fn parse_from_string(raw: &str) -> Result<Self, Error>;
 # }
@@ -372,12 +396,20 @@ the super trait of `CanUsePerson` as follows:
 # use anyhow::Error;
 # use serde::{Serialize, Deserialize};
 #
-# #[derive_component(StringFormatterComponent, StringFormatter<Context>)]
+# #[cgp_component {
+#    name: StringFormatterComponent,
+#    provider: StringFormatter,
+#    context: Context,
+# }]
 # pub trait CanFormatToString {
 #     fn format_to_string(&self) -> Result<String, Error>;
 # }
 #
-# #[derive_component(StringParserComponent, StringParser<Context>)]
+# #[cgp_component {
+#    name: StringParserComponent,
+#    provider: StringParser,
+#    context: Context,
+# }]
 # pub trait CanParseFromString: Sized {
 #     fn parse_from_string(raw: &str) -> Result<Self, Error>;
 # }
