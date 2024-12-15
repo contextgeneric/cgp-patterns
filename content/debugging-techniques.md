@@ -252,7 +252,7 @@ a _check trait_, which asserts that a concrete context implements all
 consumer traits that we intended to implement. the check trait would be
 defined as follows:
 
-```rust,compile_fail
+```rust
 # extern crate anyhow;
 # extern crate serde;
 # extern crate serde_json;
@@ -343,29 +343,44 @@ same example code as before, we would get the following error message:
 
 ```text
 error[E0277]: the trait bound `FormatAsJsonString: StringFormatter<Person>` is not satisfied
+  --> debugging-techniques.md:330:23
    |
-69 | impl CanUsePerson for Person {}
+77 | impl CanUsePerson for Person {}
    |                       ^^^^^^ the trait `StringFormatter<Person>` is not implemented for `FormatAsJsonString`, which is required by `Person: CanFormatToString`
    |
    = help: the trait `StringFormatter<Context>` is implemented for `FormatAsJsonString`
 note: required for `PersonComponents` to implement `StringFormatter<Person>`
+  --> debugging-techniques.md:265:1
    |
-12 | #[derive_component(StringFormatterComponent, StringFormatter<Context>)]
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+12 | / #[cgp_component {
+13 | |    name: StringFormatterComponent,
+14 | |    provider: StringFormatter,
+15 | |    context: Context,
+16 | | }]
+   | |__^
 note: required for `Person` to implement `CanFormatToString`
+  --> debugging-techniques.md:265:1
    |
-12 | #[derive_component(StringFormatterComponent, StringFormatter<Context>)]
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+12 | / #[cgp_component {
+13 | |    name: StringFormatterComponent,
+14 | |    provider: StringFormatter,
+15 | |    context: Context,
+   | |             ^^^^^^^
+16 | | }]
+   | |__^
 note: required by a bound in `CanUsePerson`
+  --> debugging-techniques.md:326:5
    |
-64 | pub trait CanUsePerson:
+72 | pub trait CanUsePerson:
    |           ------------ required by a bound in this trait
-65 |     CanFormatToString
+73 |     CanFormatToString
    |     ^^^^^^^^^^^^^^^^^ required by this bound in `CanUsePerson`
-   = note: `CanUsePerson` is a "sealed trait", because to implement it you also need to implement `main::_doctest_main_check_traits_md_229_0::CanFormatToString`, which is not accessible; this is usually done to force you to use one of the provided types that already implement it
+   = note: `CanUsePerson` is a "sealed trait", because to implement it you also need to implement `main::_doctest_main_debugging_techniques_md_255_0::CanFormatToString`, which is not accessible; this is usually done to force you to use one of the provided types that already implement it
    = help: the following type implements the trait:
              Context
-   = note: this error originates in the attribute macro `derive_component` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = note: this error originates in the attribute macro `cgp_component` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: aborting due to 1 previous error
 ```
 
 The error message is still pretty confusing, but it is slightly more informative
@@ -525,24 +540,50 @@ pub trait CanUsePerson:
 This technique can hopefully help speed up the debugging process, and determine
 which dependency is missing.
 
-## Future Improvements
+## Improving The Compiler Error Message
 
 The need of manual debugging using check traits is probably one of the major blockers
-for spreading CGP for wider adoption. Although it is not technically an unsolvable
-problem, it is a matter of allocating sufficient time and resource to improve the
-error messages from Rust.
+for spreading CGP for wider adoption. However, it is possible to improve the error
+messages returned from the Rust compiler so that we can more easily find out what
+went wrong.
 
-When the opportunity arise, we plan to eventually work on submitting pull requests
-for improving the error messages when the constraints from blanket implementations
-cannot be satisfied. This book will be updated once we get an experimental version
-of the Rust compiler working with improved error messages.
+When Rust fails to resolve the constraints for `Person: CanFormatString`, it in fact
+knows that the reason for the failure is caused by unsatisfied _indirect_ constraints
+such as `Person: Serialize`. So what we need to do is to make Rust prints out the
+unsatisfied constraints.
 
-We also consider exploring the option of building a custom compiler plugin similar
-to Clippy, which can be used to explain CGP-related errors in more direct ways.
-Similarly, it should not be too challenging to build IDE extensions similar to
-Rust Analyzer, which can provide more help in fixing CGP-related errors.
+We have a fix for this on an [experimental fork](https://github.com/contextgeneric/rust/tree/show-pending-constraints-in-fulfillment-error)
+of the Rust compiler. The changes made are roughly 30 lines of code, and we are preparing
+to contribute the patch upstream. But until that is merged and stabilized, you can try
+to use the custom Rust compiler to debug any CGP error.
 
-Until improved tooling becomes available, we hope that the use of check traits
-for debugging is at least sufficient for early adopters. From this chapter onward,
-we are just starting to explore what can be done with the basic framework of CGP
-in place.
+Following are the steps to use the modified Rust compiler:
+
+- Clone our fork of the Rust compiler at `https://github.com/contextgeneric/rust.git`, or add it as a secondary git remote.
+- Checkout the branch `show-pending-constraints-in-fulfillment-error`.
+- Build the Rust compiler following the [official guide](https://rustc-dev-guide.rust-lang.org/building/how-to-build-and-run.html).
+- Link the compiled custom compiler using `rustup link`, aliasing it to a custom name like `cgp`. e.g. `rustup toolchain link cgp build/host/stage1`.
+- Run your project using the custom compiler, e.g. `cargo +cgp check`.
+
+If everything is working, you should see similar error messages as before, but with additional information included:
+
+```text
+error[E0277]: the trait bound `FormatAsJsonString: StringFormatter<Person>` is not satisfied
+  --> content/debugging-techniques.md:330:23
+   |
+77 | impl CanUsePerson for Person {}
+   |                       ^^^^^^ the trait `StringFormatter<Person>` is not implemented for `FormatAsJsonString`
+   |
+   = help: the following constraint is not satisfied: `Person: Serialize`
+   = help: the trait `StringFormatter<Context>` is implemented for `FormatAsJsonString`
+note: required for `PersonComponents` to implement `StringFormatter<Person>`
+```
+
+After the main error is shown, we can also see an extra help hint that says:
+`the following constraint is not satisfied: Person: Serialize`. Thanks to that,
+we can now much more easily pin point the source of error, and proceed to fix
+our CGP program.
+
+We hope that our patch will soon be accepted by the Rust project, so that future
+versions of Rust will be more accessible for CGP. When that happens, we will
+update this chapter to reflect the changes.
