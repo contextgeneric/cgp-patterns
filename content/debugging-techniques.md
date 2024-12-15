@@ -185,14 +185,15 @@ error that looks like follows:
 
 ```text
 error[E0599]: the method `format_to_string` exists for struct `Person`, but its trait bounds were not satisfied
+  --> debugging-techniques.md:180:23
    |
-46 | pub struct Person {
+54 | pub struct Person {
    | ----------------- method `format_to_string` not found for this struct because it doesn't satisfy `Person: CanFormatToString`
 ...
-51 | pub struct PersonComponents;
+59 | pub struct PersonComponents;
    | --------------------------- doesn't satisfy `PersonComponents: StringFormatter<Person>`
 ...
-65 | println!("{}", person.format_to_string().unwrap());
+73 | println!("{}", person.format_to_string().unwrap());
    |                -------^^^^^^^^^^^^^^^^--
    |                |      |
    |                |      this is an associated function, not a method
@@ -200,25 +201,36 @@ error[E0599]: the method `format_to_string` exists for struct `Person`, but its 
    |
    = note: found the following associated functions; to be used as methods, functions must have a `self` parameter
 note: the candidate is defined in the trait `StringFormatter`
+  --> debugging-techniques.md:125:5
    |
-14 |     fn format_to_string(&self) -> Result<String, Error>;
+18 |     fn format_to_string(&self) -> Result<String, Error>;
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 note: trait bound `PersonComponents: StringFormatter<Person>` was not satisfied
+  --> debugging-techniques.md:119:1
    |
-12 | #[derive_component(StringFormatterComponent, StringFormatter<Context>)]
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+12 | / #[cgp_component {
+13 | |    name: StringFormatterComponent,
+14 | |    provider: StringFormatter,
+15 | |    context: Context,
+   | |             ^^^^^^^
+16 | | }]
+   | |__^
 note: the trait `StringFormatter` must be implemented
+  --> debugging-techniques.md:124:1
    |
-13 | / pub trait CanFormatToString {
-14 | |     fn format_to_string(&self) -> Result<String, Error>;
-15 | | }
+17 | / pub trait CanFormatToString {
+18 | |     fn format_to_string(&self) -> Result<String, Error>;
+19 | | }
    | |_^
    = help: items from traits can only be used if the trait is implemented and in scope
 note: `CanFormatToString` defines an item `format_to_string`, perhaps you need to implement it
+  --> debugging-techniques.md:124:1
    |
-13 | pub trait CanFormatToString {
+17 | pub trait CanFormatToString {
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   = note: this error originates in the attribute macro `derive_component` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = note: this error originates in the attribute macro `cgp_component` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: aborting due to 1 previous error
 ```
 
 Unfortunately, the error message returned from Rust is very confusing, and not
@@ -252,7 +264,7 @@ a _check trait_, which asserts that a concrete context implements all
 consumer traits that we intended to implement. the check trait would be
 defined as follows:
 
-```rust
+```rust,compile_fail
 # extern crate anyhow;
 # extern crate serde;
 # extern crate serde_json;
