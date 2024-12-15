@@ -564,10 +564,11 @@ knows that the reason for the failure is caused by unsatisfied _indirect_ constr
 such as `Person: Serialize`. So what we need to do is to make Rust prints out the
 unsatisfied constraints.
 
-We have a fix for this on an [experimental fork](https://github.com/contextgeneric/rust/tree/show-pending-constraints-in-fulfillment-error)
-of the Rust compiler. The changes made are roughly 30 lines of code, and we are preparing
-to contribute the patch upstream. But until that is merged and stabilized, you can try
-to use the custom Rust compiler to debug any CGP error.
+This has been reported as [issue #134346](https://github.com/rust-lang/rust/issues/134346)
+at the Rust project, with a pending fix available as
+[pull request #134348](https://github.com/rust-lang/rust/pull/134348).
+But until the patch is merged and stabilized, you can try to use our custom fork of the
+Rust compiler to debug any CGP error.
 
 Following are the steps to use the modified Rust compiler:
 
