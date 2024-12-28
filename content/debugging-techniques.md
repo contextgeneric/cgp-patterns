@@ -573,10 +573,16 @@ Rust compiler to debug any CGP error.
 Following are the steps to use the modified Rust compiler:
 
 - Clone our fork of the Rust compiler at `https://github.com/contextgeneric/rust.git`, or add it as a secondary git remote.
-- Checkout the branch `show-pending-constraints-in-fulfillment-error`.
-- Build the Rust compiler following the [official guide](https://rustc-dev-guide.rust-lang.org/building/how-to-build-and-run.html).
+- Checkout the branch `cgp`, which applies the error reporting patch to the latest stable Rust.
+- Build the Rust compiler following the [official guide](https://rustc-dev-guide.rust-lang.org/building/how-to-build-and-run.html). The steps should be something as follows:
+   - Run `./x setup`
+   - Run `./x build`
+   - Run `./x build proc-macro-srv-cli`, if you wan to use the forked compiler with Rust Analyzer.
+   - Optionally, run `./x build --stage 2` and `./x build --stage 2 proc-macro-srv-cli`, if you want to use the stage 2 compiler.
 - Link the compiled custom compiler using `rustup link`, aliasing it to a custom name like `cgp`. e.g. `rustup toolchain link cgp build/host/stage1`.
+   - Link with `build/host/stage2` if you want to use the stage 2 compiler.
 - Run your project using the custom compiler, e.g. `cargo +cgp check`.
+- To use this with Rust Analyzer, set `channel = "cgp"` inside your project's `rust-toolchain.toml` file.
 
 If everything is working, you should see similar error messages as before, but with additional information included:
 

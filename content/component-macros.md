@@ -112,16 +112,41 @@ be used to bring all CGP constructs into scope. This includes the
 `HasComponents` and `DelegateComponent` traits, which are also provided
 by the `cgp` crate.
 
-We then use `derive_component` as an attribute proc macro, with several
+We then use `cgp_component` as an attribute proc macro, with several
 key-value arguments given. The `name` field is used to define the component
 name type, which is called `ActionPerformerComponent`. The `provider`
 field `ActionPerformer` is used for the name for the provider trait.
 The `context` field `Context` is used for the generic type name of the
 context when used inside the provider trait.
 
+The `cgp_component` macro allows the `name` and `context` field to
+be omited. When omitted, the `context` field will default to `Context`,
+and the `name` field will default to `{provider}Component`.
+So the same example above could be simplified to:
+
+
+```rust,ignore
+use cgp::prelude::*;
+
+#[cgp_component {
+    provider: ActionPerformer,
+}]
+pub trait CanPerformAction<GenericA, GenericB, ...>:
+    ConstraintA + ConstraintB + ...
+{
+    fn perform_action(
+        &self,
+        arg_a: ArgA,
+        arg_b: ArgB,
+        ...
+    ) -> Output;
+}
+```
+
+
 ## `delegate_components` Macro
 
-In addition to the `derive_component` macro, `cgp` also provides the
+In addition to the `cgp_component` macro, `cgp` also provides the
 `delegate_components!` macro that can be used to automatically implement
 `DelegateComponent` for a provider type. The syntax is roughly as follows:
 
@@ -175,7 +200,7 @@ used to further simplify the mapping.
 
 ## Example Use
 
-To illustrate how `derive_component` and `delegate_components` can be
+To illustrate how `cgp_component` and `delegate_components` can be
 used, we revisit the code for `CanFormatToString`, `CanParseFromString`,
 and `PersonContext` from the [previous chapter](./provider-delegation.md),
 and look at how the macros can simplify the same code.
@@ -272,7 +297,7 @@ delegate_components! {
 ```
 
 As we can see, the new code is significantly simpler and more readable than before.
-Using `derive_component`, we no longer need to explicitly define the provider
+Using `cgp_component`, we no longer need to explicitly define the provider
 traits `StringFormatter` and `StringParser`, and the blanket implementations
 can be omitted. We also make use of `delegate_components!` on `PersonComponents`
 to delegate `StringFormatterComponent` to `FormatAsJsonString`, and
