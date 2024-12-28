@@ -396,6 +396,130 @@ That said, this advice is _non-binding_, so readers are free to add as many item
 as they prefer into a trait, and go through the hard way of learning why the
 alternative is better.
 
+## Impl-Side Associated Type Constraints
+
+The minimalism philosophy for CGP also extends to the constraints specified
+on the associated type inside a type trait.
+Looking back at the definition of `HasTimeType`:
+
+```rust
+# extern crate cgp;
+#
+# use cgp::prelude::*;
+#
+#[cgp_component {
+    name: TimeTypeComponent,
+    provider: ProvideTimeType,
+}]
+pub trait HasTimeType {
+    type Time: Eq + Ord;
+}
+```
+
+The associated `Time` type has the constraint `Eq + Ord` specified. With this, the constraints
+are imposed on _all_ concrete time types, regardless of whether they are actually used by
+the providers. In fact, if we revisit our previous code, we could notice that the `Eq`
+constraint is not reallying being used anywhere.
+
+For this reason, the constraints specified on the associated type often become a bottleneck
+that significantly restricts how the application can evolve. For example, as the application
+grows more complex, it is not uncommon to now require `Time` to implement many additional traits,
+such as `Debug + Display + Clone + Hash + Serialize + Deserialize` and so on.
+
+Fortunately with CGP, we can reuse the same techniques as impl-side dependencies, and apply
+them on the associated type constraints:
+
+```rust
+# extern crate cgp;
+# extern crate anyhow;
+#
+# use anyhow::{anyhow, Error};
+# use cgp::prelude::*;
+#
+#[cgp_component {
+    name: TimeTypeComponent,
+    provider: ProvideTimeType,
+}]
+pub trait HasTimeType {
+    type Time;
+}
+
+# #[cgp_component {
+#     name: AuthTokenTypeComponent,
+#     provider: ProvideAuthTokenType,
+# }]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
+#
+# #[cgp_component {
+#     provider: AuthTokenValidator,
+# }]
+# pub trait CanValidateAuthToken: HasAuthTokenType {
+#     fn validate_auth_token(&self, auth_token: &Self::AuthToken) -> Result<(), Error>;
+# }
+#
+# #[cgp_component {
+#     provider: AuthTokenExpiryFetcher,
+# }]
+# pub trait CanFetchAuthTokenExpiry: HasAuthTokenType + HasTimeType {
+#     fn fetch_auth_token_expiry(&self, auth_token: &Self::AuthToken) -> Result<Self::Time, Error>;
+# }
+#
+# #[cgp_component {
+#     provider: CurrentTimeGetter,
+# }]
+# pub trait HasCurrentTime: HasTimeType {
+#     fn current_time(&self) -> Result<Self::Time, Error>;
+# }
+#
+pub struct ValidateTokenIsNotExpired;
+
+impl<Context> AuthTokenValidator<Context> for ValidateTokenIsNotExpired
+where
+    Context: HasCurrentTime + CanFetchAuthTokenExpiry,
+    Context::Time: Ord,
+{
+    fn validate_auth_token(
+        context: &Context,
+        auth_token: &Context::AuthToken,
+    ) -> Result<(), Error> {
+        let now = context.current_time()?;
+
+        let token_expiry = context.fetch_auth_token_expiry(auth_token)?;
+
+        if token_expiry < now {
+            Ok(())
+        } else {
+            Err(anyhow!("auth token has expired"))
+        }
+    }
+}
+```
+
+In the above example, we redefine `HasTimeType::Time` to _not_ have any constraint.
+Then in the provider implementation of `ValidateTokenIsNotExpired`, we add an
+additional constraint that requires `Context::Time: Ord`. This way,
+`ValidateTokenIsNotExpired` is able to compare the token expiry time, even
+when `Ord` is not specified on `HasTimeType::Time`.
+
+With this approach, we can _conditionally_ require `HasTimeType::Time` to implement
+`Ord`, only when `ValidateTokenIsNotExpired` is used as the provider.
+This essentially allows the abstract types to scale in the same way as the generic
+context types, and allows us to make use of the same CGP patterns also on abstract types.
+
+That said, in some cases it is still convenient to directly include constraints
+such as `Debug` on an associated type, especially if the constraint is used in
+almost all providers. With the current state of error reporting, including
+all constraints on the associated type also tend to provide better error messages,
+when there is any unsatisfied constraint.
+
+As a guideline, we encourage readers to first try to define type traits without
+including any constraint on the associated type, and try to include the constraints
+on the impl-side as often as possible. However readers are free to include default
+constraints to associated types as they see fit, at least for relatively trivial
+types such as `Debug` and `Eq`.
+
 ## Type Providers
 
 With the type abstraction in place, we can define different context-generic
@@ -562,6 +686,9 @@ of comparing newtypes and abstract types in later chapters.
 
 ## Putting It Altogether
 
+With all pieces in place, we can put together everything we learn, and refactor
+our naive authentication components to make use of abstract types as follows:
+
 ```rust
 # extern crate cgp;
 # extern crate anyhow;
@@ -715,3 +842,13 @@ pub mod contexts {
 #
 # }
 ```
+
+Compared to before, it is now much easier for us to update the `MockApp` context to
+use different time and auth token providers. In case if we need to use different
+concrete types for different use cases, we can also easily define additional
+context types with different wirings, without having to duplicate the core logic.
+
+At this point, we have make use of abstract types on the time and auth token types,
+but we are still using a concrete `anyhow::Error` type. In the next chapter, we
+will look into the topic of error handling, and learn how to make use of
+abstract error types to better handle application errors.
