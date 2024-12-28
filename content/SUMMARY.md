@@ -21,10 +21,6 @@
 # Design Patterns
 
 - [Associated Types](associated-types.md)
-    - [Parameterized Associated Types]()
-    - [Impl-side Generic Types]()
-    - [Associated Type Specialization]()
-    - [`HasType`]()
 - [Error Handling]()
     - [`HasErrorType`]()
     - [From Errors]()

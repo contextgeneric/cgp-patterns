@@ -6,9 +6,9 @@ Since CGP works within Rust's trait system, we can make use of advanced
 Rust features together with CGP to form new design patterns.
 In this chapter, we will learn about how to make use of _associated types_
 with CGP to define context-generic providers that are generic over multiple
-types.
+_abstract_ types.
 
-# Building Authentication Components
+## Building Authentication Components
 
 Supposed that we want to build a simple authentication system using _bearer tokens_
 with expiry time. To build such system, we would need to fetch the expiry time of
@@ -135,7 +135,7 @@ pub mod contexts {
 
 We first define `CanValidateAuthToken`, which would be used as the main API for validating an
 auth token. In order to help implementing the validator, we also define
-`CanFetchAuthTokenExpiry` used for fetching the expiry time of an auth token, if it is valid.
+`CanFetchAuthTokenExpiry` used for fetching the expiry time of an auth token, if the token is valid.
 Finally, we also define `HasCurrentTime` which is used for fetching the current time.
 
 We then define a context-generic provider `ValidateTokenIsNotExpired`, which validates auth tokens
@@ -153,7 +153,7 @@ We also define a check trait `CanUseMockApp`, to check that `MockApp` correctly 
 
 ## Abstract Types
 
-The naive example above makes use of basic CGP techniques to implement a reusable
+The naive example above makes use of basic CGP techniques to implement a reusable provider
 `ValidateTokenIsNotExpired`, which can be used with different concrete contexts.
 However, we can see that the method signatures are tied to specific types.
 In particular, we used `String` to represent the auth token, and `u64` to
@@ -344,7 +344,7 @@ where
 }
 ```
 
-Through this example, we can see what CGP allows us to define context-generic providers
+Through this example, we can see that CGP allows us to define context-generic providers
 that are not only generic over the main context, but also all its associated types.
 Compared to regular generic programming, instead of specifying all generic parameters
 by position, we are able to parameterize the abstract types using _names_, in the form
@@ -388,12 +388,12 @@ the application to choose a time type that it won't actually use.
 In practice, we find the practical benefits of defining many _minimal_ traits often
 outweight any theoretical advantages of combining multiple items into one trait.
 As we will demonstrate in later chapters, having traits that contain only one type
-or method would enable more advanced CGP patterns to be applied to such traits.
+or method would also enable more advanced CGP patterns to be applied to such traits.
 
 Because of this, we encourage readers to follow our advice and be _encouraged_
 to use as many minimal traits without worrying about any theoretical overhead.
 That said, this advice is _non-binding_, so readers are free to add as many items
-as they prefer into a trait, and go through the hard way of learning why the
+as they prefer into a trait, and perhaps go through the hard way of learning why the
 alternative is better.
 
 ## Impl-Side Associated Type Constraints
@@ -630,7 +630,7 @@ where
 }
 ```
 
-Since our application only require `Time` to implement `Eq` and `Ord`,
+Since our application only require `Time` to implement `Ord`,
 and the ability to get the current time, we can easily swap between different
 time providers if they satisfy all the dependencies we need.
 As the application grows, there may be additional constraints imposed on
@@ -665,7 +665,7 @@ impl<Context> ProvideAuthTokenType<Context> for UseStringAuthToken {
 
 Notice that compared to the newtype pattern, we can opt to use plain old `String`
 _without_ wrapping it around a newtype struct. Contradicting to common wisdom,
-we in fact do not put as much emphasis of requiring newtype wrapping every
+with CGP we do not put as much emphasis of requiring newtype wrapping every
 abstract type used by the application. This is particularly the case if the
 majority of the application is written as context-generic code. The reason
 for this is because the abstract types and their accompanying interfaces
@@ -678,7 +678,7 @@ different approaches that we will discuss in later chapters on how to properly
 restrict the access of underlying concrete types inside context-generic code.
 Newtypes would also still be useful, if the values are also accessed by
 non-trival non-context-generic code, which would have unrestricted access to
-the raw type.
+the concrete type.
 
 In this book, we will continue using the pattern of implementing abstract types
 using plain types without additional newtype wrapping. We will revisit the topic
