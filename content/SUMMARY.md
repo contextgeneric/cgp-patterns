@@ -21,7 +21,7 @@
 # Design Patterns
 
 - [Associated Types](associated-types.md)
-- [Error Handling]()
+- [Error Handling](error-handling.md)
     - [`HasErrorType`]()
     - [From Errors]()
     - [`CanRaiseError`]()
