@@ -123,11 +123,11 @@ Now that we have made use of abstract errors over concrete errors in our compone
 a challenge that arise next is how can we raise abstract errors inside our context-generic
 providers.
 With CGP, we can make use of impl-side dependencies as usual, and include additional constraints
-on the `Error` type, such as requiring it to implement `From` to convert a low-level error into
+on the `Error` type, such as requiring it to implement `From` to convert a source error into
 an abstract error value.
 
-Using this technique, we can re-write `ValidateTokenIsNotExpired` to convert a `&'static str`
-into `Context::Error`, when an auth token has expired:
+Using this technique, we can re-write `ValidateTokenIsNotExpired` to convert a source error
+`&'static str` into `Context::Error`, when an auth token has expired:
 
 ```rust
 # extern crate cgp;
@@ -321,7 +321,7 @@ This restriction is a common pain point when using error libraries like `anyhow`
 But the restriction is there because without CGP, a type like `anyhow::Error`
 cannot provide other blanket implementations for `From` as it would cause overlap.
 The use of `From` also causes leaky abstraction, as custom error types like
-`ErrAuthTokenHasExpired` are forced to anticipate the use and implement the
+`ErrAuthTokenHasExpired` are forced to anticipate such use and implement the
 common constraints like `core::error::Error`.
 Furthermore, the ownership rules also make it impossible to support custom `From`
 implementations for non-owned types, such as `String` and `&str`.
@@ -336,9 +336,155 @@ albeit more verbose approach, which is to use the `CanRaiseError` trait:
 # use cgp::prelude::*;
 #
 #[cgp_component {
-    provider: ErrorRaiser
+    provider: ErrorRaiser,
 }]
 pub trait CanRaiseError<E>: HasErrorType {
     fn raise_error(e: E) -> Self::Error;
+}
+```
+
+The trait `CanRaiseError` contains a _generic parameter_ `E` that represents a
+source error type that we want to embed into the main abstract error,
+`HasErrorType::Error`.
+By having it as a generic parameter, it means that a context can raise multiple
+source error types `E` by converting it into `HasErrorType::Error`.
+
+Since raising errors is essential in almost all CGP code, the `CanRaiseError`
+trait is also included as part of the prelude in `cgp`.
+
+We can now redefine `ValidateTokenIsNotExpired` to use `CanRaiseError` instead
+of `From` to raise a source error like `&'static str`:
+
+```rust
+# extern crate cgp;
+#
+# use cgp::prelude::*;
+#
+# #[cgp_component {
+#     name: TimeTypeComponent,
+#     provider: ProvideTimeType,
+# }]
+# pub trait HasTimeType {
+#     type Time;
+# }
+#
+# #[cgp_component {
+#     name: AuthTokenTypeComponent,
+#     provider: ProvideAuthTokenType,
+# }]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
+#
+# #[cgp_component {
+#     provider: AuthTokenValidator,
+# }]
+# pub trait CanValidateAuthToken: HasAuthTokenType + HasErrorType {
+#     fn validate_auth_token(&self, auth_token: &Self::AuthToken) -> Result<(), Self::Error>;
+# }
+#
+# #[cgp_component {
+#     provider: AuthTokenExpiryFetcher,
+# }]
+# pub trait CanFetchAuthTokenExpiry: HasAuthTokenType + HasTimeType + HasErrorType {
+#     fn fetch_auth_token_expiry(
+#         &self,
+#         auth_token: &Self::AuthToken,
+#     ) -> Result<Self::Time, Self::Error>;
+# }
+#
+# #[cgp_component {
+#     provider: CurrentTimeGetter,
+# }]
+# pub trait HasCurrentTime: HasTimeType + HasErrorType {
+#     fn current_time(&self) -> Result<Self::Time, Self::Error>;
+# }
+#
+pub struct ValidateTokenIsNotExpired;
+
+impl<Context> AuthTokenValidator<Context> for ValidateTokenIsNotExpired
+where
+    Context: HasCurrentTime + CanFetchAuthTokenExpiry + CanRaiseError<&'static str>,
+    Context::Time: Ord,
+{
+    fn validate_auth_token(
+        context: &Context,
+        auth_token: &Context::AuthToken,
+    ) -> Result<(), Context::Error> {
+        let now = context.current_time()?;
+
+        let token_expiry = context.fetch_auth_token_expiry(auth_token)?;
+
+        if token_expiry < now {
+            Ok(())
+        } else {
+            Err(Context::raise_error("auth token has expired"))
+        }
+    }
+}
+```
+
+In the new implementation, we replace the constraint `Context: HasErrorType` with
+`Context: CanRaiseError<&'static str>`. Since `HasErrorType` is a super trait of
+`CanRaiseError`, we only need to include `CanRaiseError` in the constraint to
+automatically also include the `HasErrorType` constraint.
+We also use the method `Context::raise_error` to raise the string
+`"auth token has expired"` to become `Context::Error`.
+
+## Context-Generic Error Raisers
+
+By defining our own `CanRaiseError` trait using CGP, we get to overcome the various
+limitations of `From`, and implement context-generic error raisers that are generic
+over the source error.
+For example, we can implement a context-generic error raiser for `anyhow::Error`
+as follows:
+
+```rust
+# extern crate cgp;
+# extern crate anyhow;
+#
+use cgp::core::error::{ErrorRaiser, HasErrorType};
+
+pub struct RaiseIntoAnyhow;
+
+impl<Context, E> ErrorRaiser<Context, E> for RaiseIntoAnyhow
+where
+    Context: HasErrorType<Error = anyhow::Error>,
+    E: core::error::Error + Send + Sync + 'static,
+{
+    fn raise_error(e: E) -> anyhow::Error {
+        e.into()
+    }
+}
+```
+
+We define a provider `RaiseIntoAnyhow`, which implements the provider trait
+`ErrorRaiser` with a generic context `Context` and a generic source error `E`.
+Using impl-side dependencies, we also include an additional constraint that
+the implementation is only valid if `Context` implements `HasErrorType`,
+_and_ if `Context::Error` is `anyhow::Error`.
+We also require a constraint for the source error `E` to implement
+`core::error::Error + Send + Sync + 'static`, which is required to use
+the `From` instance of `anyhow::Error`.
+Inside the method signature, we can replace the return value from `Context::Error`
+to `anyhow::Error`, since we already required the two types to be equal.
+Inside the method body, we simply call `e.into()` to convert the source
+error `E` using `anyhow::Error::From`.
+
+```rust
+# extern crate cgp;
+#
+use cgp::core::error::{ErrorRaiser, HasErrorType};
+
+pub struct RaiseFrom;
+
+impl<Context, E> ErrorRaiser<Context, E> for RaiseFrom
+where
+    Context: HasErrorType,
+    Context::Error: From<E>,
+{
+    fn raise_error(e: E) -> Context::Error {
+        e.into()
+    }
 }
 ```

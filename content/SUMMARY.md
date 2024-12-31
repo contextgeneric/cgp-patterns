@@ -22,9 +22,7 @@
 
 - [Associated Types](associated-types.md)
 - [Error Handling](error-handling.md)
-    - [`HasErrorType`]()
-    - [From Errors]()
-    - [`CanRaiseError`]()
+    - [Delegated Error Raiser]()
     - [Error Wrapping]()
 - [Component Presets]()
 - [Trait-Generic Providers]()
