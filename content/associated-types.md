@@ -593,8 +593,6 @@ make use of a different time type, such as
 # extern crate anyhow;
 # extern crate datetime;
 #
-# use std::time::Instant;
-#
 # use cgp::prelude::*;
 # use anyhow::Error;
 # use datetime::LocalDateTime;

@@ -21,10 +21,8 @@
 # Design Patterns
 
 - [Associated Types](associated-types.md)
-- [Error Handling]()
-    - [`HasErrorType`]()
-    - [From Errors]()
-    - [`CanRaiseError`]()
+- [Error Handling](error-handling.md)
+    - [Delegated Error Raiser]()
     - [Error Wrapping]()
 - [Component Presets]()
 - [Trait-Generic Providers]()
