@@ -469,7 +469,11 @@ the `From` instance of `anyhow::Error`.
 Inside the method signature, we can replace the return value from `Context::Error`
 to `anyhow::Error`, since we already required the two types to be equal.
 Inside the method body, we simply call `e.into()` to convert the source
-error `E` using `anyhow::Error::From`.
+error `E` using `anyhow::Error::From`, since the constraint for using
+it is already satisfied.
+
+In fact, if our purpose is to use `From` to convert the errors, we can implement
+a generalized provider that work with any instance of `From` as follows:
 
 ```rust
 # extern crate cgp;
@@ -488,3 +492,263 @@ where
     }
 }
 ```
+
+The `RaiseFrom` provider can work with any `Context` that implements `HasErrorType`,
+without further qualification of what the concrete type for `Context::Error` should be.
+The only additional requirement is that `Context::Error` needs to implement `From<E>`.
+With that constraint in place, we can once again raise errors from any source error `E`
+to `Context::Error`, without coupling it explicitly in providers like
+`ValidateTokenIsNotExpired`.
+
+It may seems redundant that we introduce the indirection of `CanRaiseError`, just to
+use back `From` to convert errors in the end. But the main purpose for this redirection
+is so that we can use something other than `From` to convert errors.
+For example, we can define a context-generic provider for `anyhow::Error` that
+raise errors using `Debug` instead of `From`:
+
+
+```rust
+# extern crate cgp;
+# extern crate anyhow;
+#
+use core::fmt::Debug;
+
+use anyhow::anyhow;
+use cgp::core::error::{ErrorRaiser, HasErrorType};
+
+pub struct DebugAsAnyhow;
+
+impl<Context, E> ErrorRaiser<Context, E> for DebugAsAnyhow
+where
+    Context: HasErrorType<Error = anyhow::Error>,
+    E: Debug,
+{
+    fn raise_error(e: E) -> anyhow::Error {
+        anyhow!("{e:?}")
+    }
+}
+```
+
+The provider `DebugAsAnyhow` can raise any source error `E` into `anyhow::Error`,
+given that `E` implements `Debug`. To implement the `raise_error` method, we
+simply use the `anyhow!` macro, and format the source error using `Debug`.
+
+With a context-generic error raiser like `DebugAsAnyhow`, a concrete context
+can now use a provider like `ValidateTokenIsNotExpired`, which can use
+`DebugAsAnyhow` to raise source errors that only implement `Debug`, such as
+`&'static str` and `ErrAuthTokenHasExpired`.
+
+## Putting It Altogether
+
+With the use of `HasErrorType` and `CanRaiseError`, we can now refactor the full example
+from the previous chapter, and make it generic over the error type:
+
+```rust
+# extern crate cgp;
+# extern crate anyhow;
+# extern crate datetime;
+#
+# pub mod main {
+pub mod traits {
+    use cgp::prelude::*;
+
+    #[cgp_component {
+        name: TimeTypeComponent,
+        provider: ProvideTimeType,
+    }]
+    pub trait HasTimeType {
+        type Time;
+    }
+
+    #[cgp_component {
+        name: AuthTokenTypeComponent,
+        provider: ProvideAuthTokenType,
+    }]
+    pub trait HasAuthTokenType {
+        type AuthToken;
+    }
+
+    #[cgp_component {
+        provider: AuthTokenValidator,
+    }]
+    pub trait CanValidateAuthToken: HasAuthTokenType + HasErrorType {
+        fn validate_auth_token(&self, auth_token: &Self::AuthToken) -> Result<(), Self::Error>;
+    }
+
+    #[cgp_component {
+        provider: AuthTokenExpiryFetcher,
+    }]
+    pub trait CanFetchAuthTokenExpiry: HasAuthTokenType + HasTimeType + HasErrorType {
+        fn fetch_auth_token_expiry(
+            &self,
+            auth_token: &Self::AuthToken,
+        ) -> Result<Self::Time, Self::Error>;
+    }
+
+    #[cgp_component {
+        provider: CurrentTimeGetter,
+    }]
+    pub trait HasCurrentTime: HasTimeType + HasErrorType {
+        fn current_time(&self) -> Result<Self::Time, Self::Error>;
+    }
+}
+
+pub mod impls {
+    use core::fmt::Debug;
+
+    use anyhow::anyhow;
+    use cgp::core::error::{ErrorRaiser, ProvideErrorType};
+    use cgp::prelude::{CanRaiseError, HasErrorType};
+    use datetime::LocalDateTime;
+
+    use super::traits::*;
+
+    pub struct ValidateTokenIsNotExpired;
+
+    #[derive(Debug)]
+    pub struct ErrAuthTokenHasExpired;
+
+    impl<Context> AuthTokenValidator<Context> for ValidateTokenIsNotExpired
+    where
+        Context: HasCurrentTime + CanFetchAuthTokenExpiry + CanRaiseError<ErrAuthTokenHasExpired>,
+        Context::Time: Ord,
+    {
+        fn validate_auth_token(
+            context: &Context,
+            auth_token: &Context::AuthToken,
+        ) -> Result<(), Context::Error> {
+            let now = context.current_time()?;
+
+            let token_expiry = context.fetch_auth_token_expiry(auth_token)?;
+
+            if token_expiry < now {
+                Ok(())
+            } else {
+                Err(Context::raise_error(ErrAuthTokenHasExpired))
+            }
+        }
+    }
+
+    pub struct UseLocalDateTime;
+
+    impl<Context> ProvideTimeType<Context> for UseLocalDateTime {
+        type Time = LocalDateTime;
+    }
+
+    impl<Context> CurrentTimeGetter<Context> for UseLocalDateTime
+    where
+        Context: HasTimeType<Time = LocalDateTime> + HasErrorType,
+    {
+        fn current_time(_context: &Context) -> Result<LocalDateTime, Context::Error> {
+            Ok(LocalDateTime::now())
+        }
+    }
+
+    pub struct UseStringAuthToken;
+
+    impl<Context> ProvideAuthTokenType<Context> for UseStringAuthToken {
+        type AuthToken = String;
+    }
+
+    pub struct UseAnyhowError;
+
+    impl<Context> ProvideErrorType<Context> for UseAnyhowError {
+        type Error = anyhow::Error;
+    }
+
+    pub struct DebugAsAnyhow;
+
+    impl<Context, E> ErrorRaiser<Context, E> for DebugAsAnyhow
+    where
+        Context: HasErrorType<Error = anyhow::Error>,
+        E: Debug,
+    {
+        fn raise_error(e: E) -> anyhow::Error {
+            anyhow!("{e:?}")
+        }
+    }
+}
+
+pub mod contexts {
+    use std::collections::BTreeMap;
+
+    use anyhow::anyhow;
+    use cgp::core::error::{ErrorRaiserComponent, ErrorTypeComponent};
+    use cgp::prelude::*;
+    use datetime::LocalDateTime;
+
+    use super::impls::*;
+    use super::traits::*;
+
+    pub struct MockApp {
+        pub auth_tokens_store: BTreeMap<String, LocalDateTime>,
+    }
+
+    pub struct MockAppComponents;
+
+    impl HasComponents for MockApp {
+        type Components = MockAppComponents;
+    }
+
+    delegate_components! {
+        MockAppComponents {
+            ErrorTypeComponent: UseAnyhowError,
+            ErrorRaiserComponent: DebugAsAnyhow,
+            [
+                TimeTypeComponent,
+                CurrentTimeGetterComponent,
+            ]: UseLocalDateTime,
+            AuthTokenTypeComponent: UseStringAuthToken,
+            AuthTokenValidatorComponent: ValidateTokenIsNotExpired,
+        }
+    }
+
+    impl AuthTokenExpiryFetcher<MockApp> for MockAppComponents {
+        fn fetch_auth_token_expiry(
+            context: &MockApp,
+            auth_token: &String,
+        ) -> Result<LocalDateTime, anyhow::Error> {
+            context
+                .auth_tokens_store
+                .get(auth_token)
+                .cloned()
+                .ok_or_else(|| anyhow!("invalid auth token"))
+        }
+    }
+
+    pub trait CanUseMockApp: CanValidateAuthToken {}
+
+    impl CanUseMockApp for MockApp {}
+}
+#
+# }
+```
+
+In the new code, we refactored `ValidateTokenIsNotExpired` to make use of
+`CanRaiseError<ErrAuthTokenHasExpired>`, with `ErrAuthTokenHasExpired`
+only implementing `Debug`.
+We also define the provider `UseAnyhowError`, which implements `ProvideErrorType`
+by setting `Error` to `anyhow::Error`.
+Inside the component wiring for `MockAppComponents`, we wire up `ErrorTypeComponent`
+with `UseAnyhowError`, and `ErrorRaiserComponent` with `DebugAsAnyhow`.
+Inside the context-specific implementation `AuthTokenExpiryFetcher<MockApp>`,
+we can use `anyhow::Error` directly, since Rust already knows that the type of
+`MockApp::Error` is `anyhow::Error`.
+
+## Conclusion
+
+In this chapter, we have gone through a high level overview of how the approach
+for error handling in CGP is very different from how error handling is typically
+done in Rust. By making use of abstract error types with `HasErrorType`, we are
+able to implement providers that are generic over the concerete error type
+used by an application. By raising error sources using `CanRaiseError`, we can
+implement context-generic error raisers that workaround the limitations of
+non-overlapping impls, and work with source errors that only implement traits
+like `Debug`.
+
+Nevertheless, error handling is a complex topic of its own, and the CGP abstractions
+like `HasErrorType` and `CanRaiseError` can only serve as the foundation to tackle
+this complex problem.
+There are a few more details related to error handling, which we will cover
+in the next chapters, before we can be ready to handle errors in real world
+applications.
