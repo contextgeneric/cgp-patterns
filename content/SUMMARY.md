@@ -22,8 +22,8 @@
 
 - [Associated Types](associated-types.md)
 - [Error Handling](error-handling.md)
-    - [Delegated Error Raiser]()
-    - [Error Wrapping]()
+    - [Delegated Error Raiser](delegated-error-raiser.md)
+    - [Detailed Error Reporting]()
 - [Component Presets]()
 - [Trait-Generic Providers]()
     - [`WithProvider`]()
