@@ -338,16 +338,16 @@ albeit more verbose approach, which is to use the `CanRaiseError` trait:
 #[cgp_component {
     provider: ErrorRaiser,
 }]
-pub trait CanRaiseError<E>: HasErrorType {
-    fn raise_error(e: E) -> Self::Error;
+pub trait CanRaiseError<SourceError>: HasErrorType {
+    fn raise_error(e: SourceError) -> Self::Error;
 }
 ```
 
-The trait `CanRaiseError` contains a _generic parameter_ `E` that represents a
+The trait `CanRaiseError` contains a _generic parameter_ `SourceError` that represents a
 source error type that we want to embed into the main abstract error,
 `HasErrorType::Error`.
 By having it as a generic parameter, it means that a context can raise multiple
-source error types `E` by converting it into `HasErrorType::Error`.
+source error types `SourceError` by converting it into `HasErrorType::Error`.
 
 Since raising errors is essential in almost all CGP code, the `CanRaiseError`
 trait is also included as part of the prelude in `cgp`.
@@ -447,29 +447,29 @@ use cgp::core::error::{ErrorRaiser, HasErrorType};
 
 pub struct RaiseIntoAnyhow;
 
-impl<Context, E> ErrorRaiser<Context, E> for RaiseIntoAnyhow
+impl<Context, SourceError> ErrorRaiser<Context, SourceError> for RaiseIntoAnyhow
 where
     Context: HasErrorType<Error = anyhow::Error>,
-    E: core::error::Error + Send + Sync + 'static,
+    SourceError: core::error::Error + Send + Sync + 'static,
 {
-    fn raise_error(e: E) -> anyhow::Error {
+    fn raise_error(e: SourceError) -> anyhow::Error {
         e.into()
     }
 }
 ```
 
 We define a provider `RaiseIntoAnyhow`, which implements the provider trait
-`ErrorRaiser` with a generic context `Context` and a generic source error `E`.
+`ErrorRaiser` with a generic context `Context` and a generic source error `SourceError`.
 Using impl-side dependencies, we also include an additional constraint that
 the implementation is only valid if `Context` implements `HasErrorType`,
 _and_ if `Context::Error` is `anyhow::Error`.
-We also require a constraint for the source error `E` to implement
+We also require a constraint for the source error `SourceError` to implement
 `core::error::Error + Send + Sync + 'static`, which is required to use
 the `From` instance of `anyhow::Error`.
 Inside the method signature, we can replace the return value from `Context::Error`
 to `anyhow::Error`, since we already required the two types to be equal.
 Inside the method body, we simply call `e.into()` to convert the source
-error `E` using `anyhow::Error::From`, since the constraint for using
+error `SourceError` using `anyhow::Error::From`, since the constraint for using
 it is already satisfied.
 
 In fact, if our purpose is to use `From` to convert the errors, we can implement
@@ -495,8 +495,8 @@ where
 
 The `RaiseFrom` provider can work with any `Context` that implements `HasErrorType`,
 without further qualification of what the concrete type for `Context::Error` should be.
-The only additional requirement is that `Context::Error` needs to implement `From<E>`.
-With that constraint in place, we can once again raise errors from any source error `E`
+The only additional requirement is that `Context::Error` needs to implement `From<SourceError>`.
+With that constraint in place, we can once again raise errors from any source error `SourceError`
 to `Context::Error`, without coupling it explicitly in providers like
 `ValidateTokenIsNotExpired`.
 
@@ -518,19 +518,19 @@ use cgp::core::error::{ErrorRaiser, HasErrorType};
 
 pub struct DebugAsAnyhow;
 
-impl<Context, E> ErrorRaiser<Context, E> for DebugAsAnyhow
+impl<Context, SourceError> ErrorRaiser<Context, SourceError> for DebugAsAnyhow
 where
     Context: HasErrorType<Error = anyhow::Error>,
-    E: Debug,
+    SourceError: Debug,
 {
-    fn raise_error(e: E) -> anyhow::Error {
+    fn raise_error(e: SourceError) -> anyhow::Error {
         anyhow!("{e:?}")
     }
 }
 ```
 
-The provider `DebugAsAnyhow` can raise any source error `E` into `anyhow::Error`,
-given that `E` implements `Debug`. To implement the `raise_error` method, we
+The provider `DebugAsAnyhow` can raise any source error `SourceError` into `anyhow::Error`,
+given that `SourceError` implements `Debug`. To implement the `raise_error` method, we
 simply use the `anyhow!` macro, and format the source error using `Debug`.
 
 With a context-generic error raiser like `DebugAsAnyhow`, a concrete context
@@ -658,12 +658,12 @@ pub mod impls {
 
     pub struct DebugAsAnyhow;
 
-    impl<Context, E> ErrorRaiser<Context, E> for DebugAsAnyhow
+    impl<Context, SourceError> ErrorRaiser<Context, SourceError> for DebugAsAnyhow
     where
         Context: HasErrorType<Error = anyhow::Error>,
-        E: Debug,
+        SourceError: Debug,
     {
-        fn raise_error(e: E) -> anyhow::Error {
+        fn raise_error(e: SourceError) -> anyhow::Error {
             anyhow!("{e:?}")
         }
     }

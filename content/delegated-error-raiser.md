@@ -333,12 +333,12 @@ pub mod impls {
 
     pub struct RaiseFrom;
 
-    impl<Context, E> ErrorRaiser<Context, E> for RaiseFrom
+    impl<Context, SourceError> ErrorRaiser<Context, SourceError> for RaiseFrom
     where
         Context: HasErrorType,
-        Context::Error: From<E>,
+        Context::Error: From<SourceError>,
     {
-        fn raise_error(e: E) -> Context::Error {
+        fn raise_error(e: SourceError) -> Context::Error {
             e.into()
         }
     }
