@@ -1,4 +1,4 @@
-# Delegated Error Raiser
+# Delegated Error Raisers
 
 In the previous chapter, we have defined context-generic error raisers like `RaiseFrom`
 and `DebugAsAnyhow`, which can be use to raise any source error that satisfy certain
@@ -13,7 +13,7 @@ For example, we may want to use `RaiseFrom` when there is a `From` instance, and
 In this chapter, we will cover the `UseDelegate` pattern, which offers a declarative
 way to handle errors differently depending on the source error type.
 
-## Ad Hoc Error Raiser
+## Ad Hoc Error Raisers
 
 One way that we can handle source errors differently is by defining an error raiser
 provider that has explicit implementation for each source error, such as follows:
