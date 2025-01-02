@@ -24,6 +24,7 @@
 - [Error Handling](error-handling.md)
     - [Delegated Error Raisers](delegated-error-raiser.md)
     - [Error Reporting](error-reporting.md)
+    - [Wrapping Errors]()
 - [Component Presets]()
 - [Trait-Generic Providers]()
     - [`WithProvider`]()

@@ -1,6 +1,6 @@
 # Error Reporting
 
-In the [previous chapter](./error-handling.md), we implemented `AuthTokenValidator`
+In the [previous chapter on error handling](./error-handling.md), we implemented `AuthTokenValidator`
 to raise the error string `"auth token has expired"`, when a given auth token has expired.
 Even after we defined a custom error type `ErrAuthTokenHasExpired`, it is still a dummy
 struct that has a `Debug` implementation that outputs the same string
@@ -350,3 +350,269 @@ bound on `Context::AuthToken` and `Context::Time`.
 With this approach, we have made use of `ErrAuthTokenHasExpired` to fully
 decouple `ValidateTokenIsNotExpired` provider from the problem of how to report
 the token expiry error.
+
+## Error Report Raisers
+
+In the [previous chapter](./delegated-error-raiser.md), we have learned about
+how to define custom error raisers and then dispatch them using the `UseDelegate`
+pattern. With that in mind, we can easily define error raisers for
+`ErrAuthTokenHasExpired` to format it in different ways.
+
+One thing to note is that since `ErrAuthTokenHasExpired` contains a lifetime
+parameter with borrowed values, any error raiser that handles it would
+likely have to make use of the borrowed value to construct an owned value
+for `Context::Error`.
+
+The simplest way to raise `ErrAuthTokenHasExpired` is to make use of its `Debug`
+implementation to and raise it using `DebugError`:
+
+```rust
+# extern crate cgp;
+#
+use cgp::core::error::{CanRaiseError, ErrorRaiser};
+use core::fmt::Debug;
+
+pub struct DebugError;
+
+impl<Context, SourceError> ErrorRaiser<Context, SourceError> for DebugError
+where
+    Context: CanRaiseError<String>,
+    SourceError: Debug,
+{
+    fn raise_error(e: SourceError) -> Context::Error {
+        Context::raise_error(format!("{e:?}"))
+    }
+}
+```
+
+As we discussed in the previous chapter, `DebugError` would implement `ErrorRaiser`
+if `ErrAuthTokenHasExpired` implements `Debug`. But recall that the `Debug` implementation
+for `ErrAuthTokenHasExpired` requires both `Context::AuthToken` and `Context::Time` to
+implement `Debug`. So in a way, the use of impl-side dependencies here is _deeply nested_,
+but nevertheless still works thanks to Rust's trait system.
+
+Now supposed that instead of using `Debug`, we want to use the `Display` instance of
+`Context::AuthToken` and `Context::Time` to format the error. Even if we are in a crate
+that do not own `ErrAuthTokenHasExpired`, we can still implement a custom `ErrorRaiser`
+instance as follows:
+
+```rust
+# extern crate cgp;
+#
+# use core::fmt::Display;
+#
+# use cgp::prelude::*;
+# use cgp::core::error::ErrorRaiser;
+#
+# #[cgp_component {
+#     name: TimeTypeComponent,
+#     provider: ProvideTimeType,
+# }]
+# pub trait HasTimeType {
+#     type Time;
+# }
+#
+# #[cgp_component {
+#     name: AuthTokenTypeComponent,
+#     provider: ProvideAuthTokenType,
+# }]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
+#
+# pub struct ErrAuthTokenHasExpired<'a, Context>
+# where
+#     Context: HasAuthTokenType + HasTimeType,
+# {
+#     pub context: &'a Context,
+#     pub auth_token: &'a Context::AuthToken,
+#     pub current_time: &'a Context::Time,
+#     pub expiry_time: &'a Context::Time,
+# }
+#
+pub struct DisplayAuthTokenExpiredError;
+
+impl<'a, Context> ErrorRaiser<Context, ErrAuthTokenHasExpired<'a, Context>>
+    for DisplayAuthTokenExpiredError
+where
+    Context: HasAuthTokenType + HasTimeType + CanRaiseError<String>,
+    Context::AuthToken: Display,
+    Context::Time: Display,
+{
+    fn raise_error(e: ErrAuthTokenHasExpired<'a, Context>) -> Context::Error {
+        Context::raise_error(format!(
+            "the auth token {} has expired at {}, which is earlier than the current time {}",
+            e.auth_token, e.expiry_time, e.current_time,
+        ))
+    }
+}
+```
+
+With this approach, we can now use `DisplayAuthTokenExpiredError` if `Context::AuthToken`
+and `Context::Time` implement `Display`. But even if they don't, we are still free to choose
+alternative strategies for our application.
+
+One possible way to improve the error message is to obfuscate the auth token, so that the
+reader of the error message cannot know about the actual auth token. This may have already
+been done, if the concrete `AuthToken` type implements a custom `Display` that does so.
+But in case if it does not, we can still do something similar using a customized error raiser:
+
+
+```rust
+# extern crate cgp;
+# extern crate sha1;
+#
+# use core::fmt::Display;
+#
+# use cgp::prelude::*;
+# use cgp::core::error::ErrorRaiser;
+use sha1::{Digest, Sha1};
+
+# #[cgp_component {
+#     name: TimeTypeComponent,
+#     provider: ProvideTimeType,
+# }]
+# pub trait HasTimeType {
+#     type Time;
+# }
+#
+# #[cgp_component {
+#     name: AuthTokenTypeComponent,
+#     provider: ProvideAuthTokenType,
+# }]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
+#
+# pub struct ErrAuthTokenHasExpired<'a, Context>
+# where
+#     Context: HasAuthTokenType + HasTimeType,
+# {
+#     pub context: &'a Context,
+#     pub auth_token: &'a Context::AuthToken,
+#     pub current_time: &'a Context::Time,
+#     pub expiry_time: &'a Context::Time,
+# }
+#
+pub struct ShowAuthTokenExpiredError;
+
+impl<'a, Context> ErrorRaiser<Context, ErrAuthTokenHasExpired<'a, Context>>
+    for ShowAuthTokenExpiredError
+where
+    Context: HasAuthTokenType + HasTimeType + CanRaiseError<String>,
+    Context::AuthToken: Display,
+    Context::Time: Display,
+{
+    fn raise_error(e: ErrAuthTokenHasExpired<'a, Context>) -> Context::Error {
+        let auth_token_hash = Sha1::new_with_prefix(e.auth_token.to_string()).finalize();
+
+        Context::raise_error(format!(
+            "the auth token {:x} has expired at {}, which is earlier than the current time {}",
+            auth_token_hash, e.expiry_time, e.current_time,
+        ))
+    }
+}
+```
+
+By decoupling the error reporting from the provider, we can now customize the error reporting
+as we see fit, without needing to access or modify the original provider `ValidateTokenIsNotExpired`.
+
+## Context-Specific Error Details
+
+Previously, we included the `context` field in `ErrAuthTokenHasExpired` but never used it in
+the error reporting. But with the ability to define custom error raisers, we can also
+define one that extracts additional details from the context, so that it can be included
+in the error message.
+
+Supposed that we are using `CanValidateAuthToken` in an application that serves sensitive documents.
+When an expired auth token is used, we may want to also include the document ID being accessed,
+so that we can identify the attack patterns of any potential attacker.
+If the application context holds the document ID, we can now access it within the error raiser
+as follows:
+
+
+```rust
+# extern crate cgp;
+# extern crate sha1;
+#
+# use core::fmt::Display;
+#
+# use cgp::prelude::*;
+# use cgp::core::error::ErrorRaiser;
+use sha1::{Digest, Sha1};
+
+# #[cgp_component {
+#     name: TimeTypeComponent,
+#     provider: ProvideTimeType,
+# }]
+# pub trait HasTimeType {
+#     type Time;
+# }
+#
+# #[cgp_component {
+#     name: AuthTokenTypeComponent,
+#     provider: ProvideAuthTokenType,
+# }]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
+#
+# pub struct ErrAuthTokenHasExpired<'a, Context>
+# where
+#     Context: HasAuthTokenType + HasTimeType,
+# {
+#     pub context: &'a Context,
+#     pub auth_token: &'a Context::AuthToken,
+#     pub current_time: &'a Context::Time,
+#     pub expiry_time: &'a Context::Time,
+# }
+#
+#[cgp_component {
+    provider: DocumentIdGetter,
+}]
+pub trait HasDocumentId {
+    fn document_id(&self) -> u64;
+}
+
+pub struct ShowAuthTokenExpiredError;
+
+impl<'a, Context> ErrorRaiser<Context, ErrAuthTokenHasExpired<'a, Context>>
+    for ShowAuthTokenExpiredError
+where
+    Context: HasAuthTokenType + HasTimeType + CanRaiseError<String> + HasDocumentId,
+    Context::AuthToken: Display,
+    Context::Time: Display,
+{
+    fn raise_error(e: ErrAuthTokenHasExpired<'a, Context>) -> Context::Error {
+        let document_id = e.context.document_id();
+        let auth_token_hash = Sha1::new_with_prefix(e.auth_token.to_string()).finalize();
+
+        Context::raise_error(format!(
+            "failed to access highly sensitive document {} at time {}, using the auth token {:x} which was expired at {}",
+            document_id, e.current_time, auth_token_hash, e.expiry_time,
+        ))
+    }
+}
+```
+
+With this, even though the provider `ValidateTokenIsNotExpired` did not know that `Context` contains
+a document ID, by including the `context` value in `ErrAuthTokenHasExpired`, we can
+still implement a custom error raiser that produce a custom error message that includes the document ID.
+
+## Conclusion
+
+In this chapter, we have learned about some advanced CGP techniques that can be used to decouple providers
+from the burden of producing good error reports. With that, we are able to define custom error raisers
+that produce highly detailed error reports, without needing to modify the original provider implementation.
+The use of source error types with abstract fields and borrowed values serves as a cheap interface to decouple
+the producer of an error (the provider) from the handler of an error (the error raiser).
+
+Still, even with CGP, learning all the best practices of properly raising and handling errors can be overwhelming,
+especially for beginners. Furthermore, even if we can decouple and customize the handling of all possible error
+cases, extra effort is still needed for every customization, which can still takes a lot of time.
+
+As a result, we do not encourage readers to try and define custom error structs for all
+possible errors. Instead, readers should start with simple error types like strings, and slowly add more structures
+to common errors that occur in the application.
+But readers should keep in mind the techniques introduced in this chapter, so that by the time we need to
+customize and produce good error reports for our applications, we know about how this can be done using CGP.
