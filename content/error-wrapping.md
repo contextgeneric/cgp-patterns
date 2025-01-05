@@ -293,8 +293,163 @@ With the same motivation described in the [previous chapter](./error-reporting.m
 we would like to make use of CGP to also enable modular error reporting for the
 error details that is being wrapped. This would mean that we want to define a
 generic `Detail` type that can include _structured data_ inside the error
-details.
+details. We can do that by introduce an _error wrapper_ trait as follows:
 
+```rust
+# extern crate cgp;
+#
+# use cgp::prelude::*;
+#
+#[cgp_component {
+    provider: ErrorWrapper,
+}]
+pub trait CanWrapError<Detail>: HasErrorType {
+    fn wrap_error(error: Self::Error, detail: Detail) -> Self::Error;
+}
+```
+
+The `CanWrapError` trait is parameterized by a generic `Detail` type, and has `HasErrorType`
+as its supertrait. Inside the `wrap_error` method, it first accepts a context error `Self::Error`
+and also a `Detail` value. It then wraps the detail inside the context error, and return
+`Self::Error`.
+
+To see how `CanWrapError` works in practice, we can redefine `LoadConfigJson` to use
+`CanWrapError` as follows:
+
+```rust
+# extern crate cgp;
+# extern crate serde;
+# extern crate serde_json;
+#
+# use std::path::PathBuf;
+# use core::fmt::Display;
+# use std::{fs, io};
+#
+# use cgp::prelude::*;
+# use serde::Deserialize;
+#
+# #[cgp_component {
+#     name: ConfigTypeComponent,
+#     provider: ProvideConfigType,
+# }]
+# pub trait HasConfigType {
+#     type Config;
+# }
+#
+# #[cgp_component {
+#     provider: ConfigLoader,
+# }]
+# pub trait CanLoadConfig: HasConfigType + HasErrorType {
+#     fn load_config(&self) -> Result<Self::Config, Self::Error>;
+# }
+#
+# #[cgp_component {
+#     provider: ConfigPathGetter,
+# }]
+# pub trait HasConfigPath {
+#     fn config_path(&self) -> &PathBuf;
+# }
+#
+# #[cgp_component {
+#     provider: ErrorWrapper,
+# }]
+# pub trait CanWrapError<Detail>: HasErrorType {
+#     fn wrap_error(error: Self::Error, detail: Detail) -> Self::Error;
+# }
+#
+pub struct LoadConfigJson;
+
+impl<Context> ConfigLoader<Context> for LoadConfigJson
+where
+    Context: HasConfigType
+        + HasConfigPath
+        + CanWrapError<String>
+        + CanRaiseError<io::Error>
+        + CanRaiseError<serde_json::Error>,
+    Context::Config: for<'a> Deserialize<'a>,
+{
+    fn load_config(context: &Context) -> Result<Context::Config, Context::Error> {
+        let config_path = context.config_path();
+
+        let config_bytes = fs::read(config_path).map_err(|e| {
+            Context::wrap_error(
+                Context::raise_error(e),
+                format!(
+                    "error when reading config file at path {}",
+                    config_path.display()
+                ),
+            )
+        })?;
+
+        let config = serde_json::from_slice(&config_bytes).map_err(|e| {
+            Context::wrap_error(
+                Context::raise_error(e),
+                format!(
+                    "error when parsing JSON config file at path {}",
+                    config_path.display()
+                ),
+            )
+        })?;
+
+        Ok(config)
+    }
+}
+```
+
+Inside the new implementation of `LoadConfigJson`, we add a `CanWrapError<String>` constraint
+so that we can add stringly error details inside the provider.
+When mapping the errors returned from `std::fs::read` and `serde_json::from_slice`,
+we pass in a closure instead of directly calling `Context::raise_error`.
+Since the first argument of `wrap_error` expects a `Context::Error`, we would
+still first use `Context::raise_error` to raise `std::io::Error` and `serde_json::Error`
+into `Context::Error`.
+In the second argument, we use `format!` to add additional details that the errors
+occured when we are trying to read and parse the given config file.
+
+Next, we would need to implement a provider for `CanWrapError` to handle how to
+wrap additional details into the error value. In the case when the context error
+type is `anyhow::Error`, we can simply call the `context` method.
+So we can implement an error wrapper provider for `anyhow::Error` as follows:
+
+
+```rust
+# extern crate cgp;
+# extern crate anyhow;
+#
+# use core::fmt::Display;
+#
+# use cgp::prelude::*;
+#
+# #[cgp_component {
+#     provider: ErrorWrapper,
+# }]
+# pub trait CanWrapError<Detail>: HasErrorType {
+#     fn wrap_error(error: Self::Error, detail: Detail) -> Self::Error;
+# }
+#
+pub struct WrapWithAnyhowContext;
+
+impl<Context, Detail> ErrorWrapper<Context, Detail> for WrapWithAnyhowContext
+where
+    Context: HasErrorType<Error = anyhow::Error>,
+    Detail: Display + Send + Sync + 'static,
+{
+    fn wrap_error(error: anyhow::Error, detail: Detail) -> anyhow::Error {
+        error.context(detail)
+    }
+}
+```
+
+We implement `WrapWithAnyhowContext` as a context-generic provider for `anyhow::Error`.
+It is implemented for any context type `Context` with `Context::Error` being the same as
+`anyhow::Error`. Additionally, it is implemented for any `Detail` type that implements
+`Display + Send + Sync + 'static`, as those are the required trait bounds to use
+`anyhow::Error::context`.
+Inside the `wrap_error` implementation, we simply call `error.context(detail)` to
+wrap the error detail using `anyhow`.
+
+After rewiring the application with the new providers, if we run the application again
+with missing file, it would show the following error instead:
 
 ```text
 error when reading config file at path config.json
@@ -303,9 +458,15 @@ Caused by:
     No such file or directory (os error 2)
 ```
 
+Similarly, when encountering error parsing the config JSON, the application now shows
+the error message:
+
 ```text
-error when parsing config file at path Cargo.toml
+error when parsing JSON config file at path config.toml
 
 Caused by:
     expected value at line 1 column 2
 ```
+
+As we can see, the error messages are now much more informative, allowing the user to diagnose
+what went wrong and fix the problem.

@@ -71,7 +71,7 @@ pub mod impls {
                 Context::wrap_error(
                     Context::raise_error(e),
                     format!(
-                        "error when parsing config file at path {}",
+                        "error when parsing JSON config file at path {}",
                         config_path.display()
                     ),
                 )
@@ -99,9 +99,9 @@ pub mod impls {
         }
     }
 
-    pub struct WrapWithAnyhow;
+    pub struct WrapWithAnyhowContext;
 
-    impl<Context, Detail> ErrorWrapper<Context, Detail> for WrapWithAnyhow
+    impl<Context, Detail> ErrorWrapper<Context, Detail> for WrapWithAnyhowContext
     where
         Context: HasErrorType<Error = anyhow::Error>,
         Detail: Display + Send + Sync + 'static,
@@ -145,7 +145,7 @@ pub mod contexts {
         AppComponents {
             ErrorTypeComponent: UseAnyhowError,
             ErrorRaiserComponent: UseDelegate<HandleAppErrors>,
-            ErrorWrapperComponent: WrapWithAnyhow,
+            ErrorWrapperComponent: WrapWithAnyhowContext,
             ConfigLoaderComponent: LoadConfigJson,
         }
     }
