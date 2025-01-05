@@ -62,9 +62,9 @@ pub mod impls {
 
     use super::traits::*;
 
-    pub struct LoadConfigJson;
+    pub struct LoadJsonConfig;
 
-    impl<Context> ConfigLoader<Context> for LoadConfigJson
+    impl<Context> ConfigLoader<Context> for LoadJsonConfig
     where
         Context: HasConfigType
             + HasConfigPath
@@ -93,12 +93,12 @@ the application config.
 To help with the implementation, we also implement a `HasConfigPath` trait,
 which allows a provider to get the file path to the config file from the context.
 
-Using the config traits, we then implement `LoadConfigJson` as a context-generic
+Using the config traits, we then implement `LoadJsonConfig` as a context-generic
 provider for `ConfigLoader`, which would read a JSON config file as bytes from the
 filesystem using `std::fs::read`, and then parse the config using `serde_json`.
-With CGP, `LoadConfigJson` can work with any `Config` type that implements `Deserialize`.
+With CGP, `LoadJsonConfig` can work with any `Config` type that implements `Deserialize`.
 
-We can then define an example application context that makes use of `LoadConfigJson` to
+We can then define an example application context that makes use of `LoadJsonConfig` to
 load its config as follows:
 
 ```rust
@@ -145,9 +145,9 @@ load its config as follows:
 #
 #     use super::traits::*;
 #
-#     pub struct LoadConfigJson;
+#     pub struct LoadJsonConfig;
 #
-#     impl<Context> ConfigLoader<Context> for LoadConfigJson
+#     impl<Context> ConfigLoader<Context> for LoadJsonConfig
 #     where
 #         Context: HasConfigType
 #             + HasConfigPath
@@ -208,7 +208,7 @@ pub mod contexts {
 
     pub struct AppComponents;
 
-    pub struct HandleAppErrors;
+    pub struct RaiseAppErrors;
 
     impl HasComponents for App {
         type Components = AppComponents;
@@ -217,13 +217,13 @@ pub mod contexts {
     delegate_components! {
         AppComponents {
             ErrorTypeComponent: UseAnyhowError,
-            ErrorRaiserComponent: UseDelegate<HandleAppErrors>,
-            ConfigLoaderComponent: LoadConfigJson,
+            ErrorRaiserComponent: UseDelegate<RaiseAppErrors>,
+            ConfigLoaderComponent: LoadJsonConfig,
         }
     }
 
     delegate_components! {
-        HandleAppErrors {
+        RaiseAppErrors {
             [
                 io::Error,
                 serde_json::Error,
@@ -255,8 +255,8 @@ an `api_secret` string field that can be used by further implementation.
 
 Inside the component wiring for `AppComponents`, we make use of `UseAnyhowError`
 that we have defined in earlier chapter to provide the `anyhow::Error` type,
-and we use `UseDelegate<HandleAppErrors>` to implement the error raiser.
-Inside of `HandleAppErrors`, we make use of `RaiseFrom` to convert `std::io::Error`
+and we use `UseDelegate<RaiseAppErrors>` to implement the error raiser.
+Inside of `RaiseAppErrors`, we make use of `RaiseFrom` to convert `std::io::Error`
 and `serde_json::Error` to `anyhow::Error` using the `From` instance.
 
 We also provide context-specific implementations of `ProvideConfigType` and
@@ -264,7 +264,7 @@ We also provide context-specific implementations of `ProvideConfigType` and
 trait `CanUseApp` to check that the wiring is done correctly and that `App`
 implements `CanLoadConfig`.
 
-Even though the example implementation for `LoadConfigJson` works, we would
+Even though the example implementation for `LoadJsonConfig` works, we would
 quickly find out that the error message returned from it is not very helpful.
 For example, if the file does not exist, we would get the following error
 message:
@@ -313,7 +313,7 @@ as its supertrait. Inside the `wrap_error` method, it first accepts a context er
 and also a `Detail` value. It then wraps the detail inside the context error, and return
 `Self::Error`.
 
-To see how `CanWrapError` works in practice, we can redefine `LoadConfigJson` to use
+To see how `CanWrapError` works in practice, we can redefine `LoadJsonConfig` to use
 `CanWrapError` as follows:
 
 ```rust
@@ -357,9 +357,9 @@ To see how `CanWrapError` works in practice, we can redefine `LoadConfigJson` to
 #     fn wrap_error(error: Self::Error, detail: Detail) -> Self::Error;
 # }
 #
-pub struct LoadConfigJson;
+pub struct LoadJsonConfig;
 
-impl<Context> ConfigLoader<Context> for LoadConfigJson
+impl<Context> ConfigLoader<Context> for LoadJsonConfig
 where
     Context: HasConfigType
         + HasConfigPath
@@ -396,7 +396,7 @@ where
 }
 ```
 
-Inside the new implementation of `LoadConfigJson`, we add a `CanWrapError<String>` constraint
+Inside the new implementation of `LoadJsonConfig`, we add a `CanWrapError<String>` constraint
 so that we can add stringly error details inside the provider.
 When mapping the errors returned from `std::fs::read` and `serde_json::from_slice`,
 we pass in a closure instead of directly calling `Context::raise_error`.

@@ -1,6 +1,7 @@
 pub mod traits {
     use std::path::PathBuf;
 
+    use cgp::core::component::UseDelegate;
     use cgp::prelude::*;
 
     #[cgp_component {
@@ -31,10 +32,22 @@ pub mod traits {
     pub trait CanWrapError<Detail>: HasErrorType {
         fn wrap_error(error: Self::Error, detail: Detail) -> Self::Error;
     }
+
+    impl<Context, Detail, Components> ErrorWrapper<Context, Detail> for UseDelegate<Components>
+    where
+        Context: HasErrorType,
+        Components: DelegateComponent<Detail>,
+        Components::Delegate: ErrorWrapper<Context, Detail>,
+    {
+        fn wrap_error(error: Context::Error, detail:Detail) -> Context::Error {
+            Components::Delegate::wrap_error(error, detail)
+        }
+    }
 }
 
 pub mod impls {
-    use core::fmt::Display;
+    use core::fmt::{Debug, Display};
+    use std::path::PathBuf;
     use std::{fs, io};
 
     use cgp::core::error::{ErrorRaiser, ProvideErrorType};
@@ -43,15 +56,26 @@ pub mod impls {
 
     use super::traits::*;
 
-    pub struct LoadConfigJson;
+    pub struct LoadJsonConfig;
 
-    impl<Context> ConfigLoader<Context> for LoadConfigJson
+    pub struct ErrLoadJsonConfig<'a, Context> {
+        pub context: &'a Context,
+        pub config_path: &'a PathBuf,
+        pub action: LoadJsonConfigAction,
+    }
+
+    pub enum LoadJsonConfigAction {
+        ReadFile,
+        ParseFile,
+    }
+
+    impl<Context> ConfigLoader<Context> for LoadJsonConfig
     where
         Context: HasConfigType
             + HasConfigPath
-            + CanWrapError<String>
             + CanRaiseError<io::Error>
-            + CanRaiseError<serde_json::Error>,
+            + CanRaiseError<serde_json::Error>
+            + for<'a> CanWrapError<ErrLoadJsonConfig<'a, Context>>,
         Context::Config: for<'a> Deserialize<'a>,
     {
         fn load_config(context: &Context) -> Result<Context::Config, Context::Error> {
@@ -60,24 +84,47 @@ pub mod impls {
             let config_bytes = fs::read(config_path).map_err(|e| {
                 Context::wrap_error(
                     Context::raise_error(e),
-                    format!(
-                        "error when reading config file at path {}",
-                        config_path.display()
-                    ),
+                    ErrLoadJsonConfig {
+                        context,
+                        config_path,
+                        action: LoadJsonConfigAction::ReadFile,
+                    },
                 )
             })?;
 
             let config = serde_json::from_slice(&config_bytes).map_err(|e| {
                 Context::wrap_error(
                     Context::raise_error(e),
-                    format!(
-                        "error when parsing JSON config file at path {}",
-                        config_path.display()
-                    ),
+                    ErrLoadJsonConfig {
+                        context,
+                        config_path,
+                        action: LoadJsonConfigAction::ParseFile,
+                    },
                 )
             })?;
 
             Ok(config)
+        }
+    }
+
+    impl<'a, Context> Debug for ErrLoadJsonConfig<'a, Context> {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            match self.action {
+                LoadJsonConfigAction::ReadFile => {
+                    write!(
+                        f,
+                        "error when reading config file at path {}",
+                        self.config_path.display()
+                    )
+                }
+                LoadJsonConfigAction::ParseFile => {
+                    write!(
+                        f,
+                        "error when parsing JSON config file at path {}",
+                        self.config_path.display()
+                    )
+                }
+            }
         }
     }
 
@@ -110,6 +157,18 @@ pub mod impls {
             error.context(detail)
         }
     }
+
+    pub struct WrapWithAnyhowDebug;
+
+    impl<Context, Detail> ErrorWrapper<Context, Detail> for WrapWithAnyhowDebug
+    where
+        Context: HasErrorType<Error = anyhow::Error>,
+        Detail: Debug,
+    {
+        fn wrap_error(error: anyhow::Error, detail: Detail) -> anyhow::Error {
+            error.context(format!("{detail:?}"))
+        }
+    }
 }
 
 pub mod contexts {
@@ -135,7 +194,9 @@ pub mod contexts {
 
     pub struct AppComponents;
 
-    pub struct HandleAppErrors;
+    pub struct RaiseAppErrors;
+
+    pub struct WrapAppErrors;
 
     impl HasComponents for App {
         type Components = AppComponents;
@@ -144,19 +205,26 @@ pub mod contexts {
     delegate_components! {
         AppComponents {
             ErrorTypeComponent: UseAnyhowError,
-            ErrorRaiserComponent: UseDelegate<HandleAppErrors>,
-            ErrorWrapperComponent: WrapWithAnyhowContext,
-            ConfigLoaderComponent: LoadConfigJson,
+            ErrorRaiserComponent: UseDelegate<RaiseAppErrors>,
+            ErrorWrapperComponent: UseDelegate<WrapAppErrors>,
+            ConfigLoaderComponent: LoadJsonConfig,
         }
     }
 
     delegate_components! {
-        HandleAppErrors {
+        RaiseAppErrors {
             [
                 io::Error,
                 serde_json::Error,
             ]:
                 RaiseFrom,
+        }
+    }
+
+    delegate_components! {
+        WrapAppErrors {
+            <'a, Context> ErrLoadJsonConfig<'a, Context>:
+                WrapWithAnyhowDebug,
         }
     }
 
