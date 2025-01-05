@@ -406,6 +406,18 @@ into `Context::Error`.
 In the second argument, we use `format!` to add additional details that the errors
 occured when we are trying to read and parse the given config file.
 
+By looking only at the example, it may seem redundant that we have to first raise
+a concrete source error like `std::io::Error` into `Context::Error`, before
+wrapping it again using `Context::wrap_error`. If the reader prefers, you can
+also use a constraint like `CanRaiseError<(String, std::io::Error)>` to raise
+the I/O error with additional string detail.
+
+However, the interface for `CanWrapError` is more applicable generally, especially
+when we combine the use with other abstractions. For example, we may want to define
+a trait like `CanReadFile` to try reading a file, and returning a general `Context::Error`
+when the read fails. In that case, we can still use `wrap_error` without knowing
+about whether we are dealing with concrete errors or abstract errors.
+
 Next, we would need to implement a provider for `CanWrapError` to handle how to
 wrap additional details into the error value. In the case when the context error
 type is `anyhow::Error`, we can simply call the `context` method.
@@ -638,3 +650,546 @@ where
 
 To wrap the error, we first use `Debug` to format the error detail into string,
 and then call `error.context` with the string.
+
+## Full Example
+
+With everything that we have learned so far, we can rewrite the config loader
+example in the beginning of this chapter, and make use of `CanWrapError` to
+decouple the error wrapping details from the provider `LoadJsonConfig`:
+
+```rust
+# extern crate anyhow;
+# extern crate cgp;
+# extern crate serde;
+# extern crate serde_json;
+#
+# pub mod main {
+pub mod traits {
+    use std::path::PathBuf;
+
+    use cgp::core::component::UseDelegate;
+    use cgp::prelude::*;
+
+    #[cgp_component {
+        name: ConfigTypeComponent,
+        provider: ProvideConfigType,
+    }]
+    pub trait HasConfigType {
+        type Config;
+    }
+
+    #[cgp_component {
+        provider: ConfigLoader,
+    }]
+    pub trait CanLoadConfig: HasConfigType + HasErrorType {
+        fn load_config(&self) -> Result<Self::Config, Self::Error>;
+    }
+
+    #[cgp_component {
+        provider: ConfigPathGetter,
+    }]
+    pub trait HasConfigPath {
+        fn config_path(&self) -> &PathBuf;
+    }
+
+    #[cgp_component {
+        provider: ErrorWrapper,
+    }]
+    pub trait CanWrapError<Detail>: HasErrorType {
+        fn wrap_error(error: Self::Error, detail: Detail) -> Self::Error;
+    }
+}
+
+pub mod impls {
+    use core::fmt::{Debug, Display};
+    use std::path::PathBuf;
+    use std::{fs, io};
+
+    use cgp::core::error::{ErrorRaiser, ProvideErrorType};
+    use cgp::prelude::*;
+    use serde::Deserialize;
+
+    use super::traits::*;
+
+    pub struct LoadJsonConfig;
+
+    pub struct ErrLoadJsonConfig<'a, Context> {
+        pub context: &'a Context,
+        pub config_path: &'a PathBuf,
+        pub action: LoadJsonConfigAction,
+    }
+
+    pub enum LoadJsonConfigAction {
+        ReadFile,
+        ParseFile,
+    }
+
+    impl<Context> ConfigLoader<Context> for LoadJsonConfig
+    where
+        Context: HasConfigType
+            + HasConfigPath
+            + CanRaiseError<io::Error>
+            + CanRaiseError<serde_json::Error>
+            + for<'a> CanWrapError<ErrLoadJsonConfig<'a, Context>>,
+        Context::Config: for<'a> Deserialize<'a>,
+    {
+        fn load_config(context: &Context) -> Result<Context::Config, Context::Error> {
+            let config_path = context.config_path();
+
+            let config_bytes = fs::read(config_path).map_err(|e| {
+                Context::wrap_error(
+                    Context::raise_error(e),
+                    ErrLoadJsonConfig {
+                        context,
+                        config_path,
+                        action: LoadJsonConfigAction::ReadFile,
+                    },
+                )
+            })?;
+
+            let config = serde_json::from_slice(&config_bytes).map_err(|e| {
+                Context::wrap_error(
+                    Context::raise_error(e),
+                    ErrLoadJsonConfig {
+                        context,
+                        config_path,
+                        action: LoadJsonConfigAction::ParseFile,
+                    },
+                )
+            })?;
+
+            Ok(config)
+        }
+    }
+
+    impl<'a, Context> Debug for ErrLoadJsonConfig<'a, Context> {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            match self.action {
+                LoadJsonConfigAction::ReadFile => {
+                    write!(
+                        f,
+                        "error when reading config file at path {}",
+                        self.config_path.display()
+                    )
+                }
+                LoadJsonConfigAction::ParseFile => {
+                    write!(
+                        f,
+                        "error when parsing JSON config file at path {}",
+                        self.config_path.display()
+                    )
+                }
+            }
+        }
+    }
+
+    pub struct UseAnyhowError;
+
+    impl<Context> ProvideErrorType<Context> for UseAnyhowError {
+        type Error = anyhow::Error;
+    }
+
+    pub struct RaiseFrom;
+
+    impl<Context, SourceError> ErrorRaiser<Context, SourceError> for RaiseFrom
+    where
+        Context: HasErrorType,
+        Context::Error: From<SourceError>,
+    {
+        fn raise_error(e: SourceError) -> Context::Error {
+            e.into()
+        }
+    }
+
+    pub struct WrapWithAnyhowDebug;
+
+    impl<Context, Detail> ErrorWrapper<Context, Detail> for WrapWithAnyhowDebug
+    where
+        Context: HasErrorType<Error = anyhow::Error>,
+        Detail: Debug,
+    {
+        fn wrap_error(error: anyhow::Error, detail: Detail) -> anyhow::Error {
+            error.context(format!("{detail:?}"))
+        }
+    }
+}
+
+pub mod contexts {
+    use std::io;
+    use std::path::PathBuf;
+
+    use cgp::core::component::UseDelegate;
+    use cgp::core::error::{ErrorRaiserComponent, ErrorTypeComponent};
+    use cgp::prelude::*;
+    use serde::Deserialize;
+
+    use super::impls::*;
+    use super::traits::*;
+
+    pub struct App {
+        pub config_path: PathBuf,
+    }
+
+    #[derive(Deserialize)]
+    pub struct AppConfig {
+        pub secret: String,
+    }
+
+    pub struct AppComponents;
+
+    pub struct RaiseAppErrors;
+
+    impl HasComponents for App {
+        type Components = AppComponents;
+    }
+
+    delegate_components! {
+        AppComponents {
+            ErrorTypeComponent: UseAnyhowError,
+            ErrorRaiserComponent: UseDelegate<RaiseAppErrors>,
+            ErrorWrapperComponent: WrapWithAnyhowDebug,
+            ConfigLoaderComponent: LoadJsonConfig,
+        }
+    }
+
+    delegate_components! {
+        RaiseAppErrors {
+            [
+                io::Error,
+                serde_json::Error,
+            ]:
+                RaiseFrom,
+        }
+    }
+
+    impl ProvideConfigType<App> for AppComponents {
+        type Config = AppConfig;
+    }
+
+    impl ConfigPathGetter<App> for AppComponents {
+        fn config_path(app: &App) -> &PathBuf {
+            &app.config_path
+        }
+    }
+
+    pub trait CanUseApp: CanLoadConfig {}
+
+    impl CanUseApp for App {}
+}
+# }
+```
+
+## Delegated Error Wrapping
+
+Similar to the previous chapter on [delegated error raisers](./delegated-error-raiser.md),
+we can also make use of the `UseDelegate` pattern to implement delegated error wrapping as follows:
+
+
+```rust
+# extern crate cgp;
+#
+# use cgp::prelude::*;
+# use cgp::core::component::UseDelegate;
+#
+# #[cgp_component {
+#     provider: ErrorWrapper,
+# }]
+# pub trait CanWrapError<Detail>: HasErrorType {
+#     fn wrap_error(error: Self::Error, detail: Detail) -> Self::Error;
+# }
+#
+impl<Context, Detail, Components> ErrorWrapper<Context, Detail> for UseDelegate<Components>
+where
+    Context: HasErrorType,
+    Components: DelegateComponent<Detail>,
+    Components::Delegate: ErrorWrapper<Context, Detail>,
+{
+    fn wrap_error(error: Context::Error, detail: Detail) -> Context::Error {
+        Components::Delegate::wrap_error(error, detail)
+    }
+}
+```
+
+With this implementation, we can dispatch the handling of different error `Detail` type
+to different error wrappers, similar to how we dispatch the error raisers based on the
+`SourceError` type:
+
+```rust
+# extern crate anyhow;
+# extern crate cgp;
+# extern crate serde;
+# extern crate serde_json;
+#
+# pub mod main {
+# pub mod traits {
+#     use std::path::PathBuf;
+#
+#     use cgp::core::component::UseDelegate;
+#     use cgp::prelude::*;
+#
+#     #[cgp_component {
+#         name: ConfigTypeComponent,
+#         provider: ProvideConfigType,
+#     }]
+#     pub trait HasConfigType {
+#         type Config;
+#     }
+#
+#     #[cgp_component {
+#         provider: ConfigLoader,
+#     }]
+#     pub trait CanLoadConfig: HasConfigType + HasErrorType {
+#         fn load_config(&self) -> Result<Self::Config, Self::Error>;
+#     }
+#
+#     #[cgp_component {
+#         provider: ConfigPathGetter,
+#     }]
+#     pub trait HasConfigPath {
+#         fn config_path(&self) -> &PathBuf;
+#     }
+#
+#     #[cgp_component {
+#         provider: ErrorWrapper,
+#     }]
+#     pub trait CanWrapError<Detail>: HasErrorType {
+#         fn wrap_error(error: Self::Error, detail: Detail) -> Self::Error;
+#     }
+#
+#     impl<Context, Detail, Components> ErrorWrapper<Context, Detail> for UseDelegate<Components>
+#     where
+#         Context: HasErrorType,
+#         Components: DelegateComponent<Detail>,
+#         Components::Delegate: ErrorWrapper<Context, Detail>,
+#     {
+#         fn wrap_error(error: Context::Error, detail: Detail) -> Context::Error {
+#             Components::Delegate::wrap_error(error, detail)
+#         }
+#     }
+# }
+#
+# pub mod impls {
+#     use core::fmt::{Debug, Display};
+#     use std::path::PathBuf;
+#     use std::{fs, io};
+#
+#     use cgp::core::error::{ErrorRaiser, ProvideErrorType};
+#     use cgp::prelude::*;
+#     use serde::Deserialize;
+#
+#     use super::traits::*;
+#
+#     pub struct LoadJsonConfig;
+#
+#     pub struct ErrLoadJsonConfig<'a, Context> {
+#         pub context: &'a Context,
+#         pub config_path: &'a PathBuf,
+#         pub action: LoadJsonConfigAction,
+#     }
+#
+#     pub enum LoadJsonConfigAction {
+#         ReadFile,
+#         ParseFile,
+#     }
+#
+#     impl<Context> ConfigLoader<Context> for LoadJsonConfig
+#     where
+#         Context: HasConfigType
+#             + HasConfigPath
+#             + CanRaiseError<io::Error>
+#             + CanRaiseError<serde_json::Error>
+#             + for<'a> CanWrapError<ErrLoadJsonConfig<'a, Context>>,
+#         Context::Config: for<'a> Deserialize<'a>,
+#     {
+#         fn load_config(context: &Context) -> Result<Context::Config, Context::Error> {
+#             let config_path = context.config_path();
+#
+#             let config_bytes = fs::read(config_path).map_err(|e| {
+#                 Context::wrap_error(
+#                     Context::raise_error(e),
+#                     ErrLoadJsonConfig {
+#                         context,
+#                         config_path,
+#                         action: LoadJsonConfigAction::ReadFile,
+#                     },
+#                 )
+#             })?;
+#
+#             let config = serde_json::from_slice(&config_bytes).map_err(|e| {
+#                 Context::wrap_error(
+#                     Context::raise_error(e),
+#                     ErrLoadJsonConfig {
+#                         context,
+#                         config_path,
+#                         action: LoadJsonConfigAction::ParseFile,
+#                     },
+#                 )
+#             })?;
+#
+#             Ok(config)
+#         }
+#     }
+#
+#     impl<'a, Context> Debug for ErrLoadJsonConfig<'a, Context> {
+#         fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+#             match self.action {
+#                 LoadJsonConfigAction::ReadFile => {
+#                     write!(
+#                         f,
+#                         "error when reading config file at path {}",
+#                         self.config_path.display()
+#                     )
+#                 }
+#                 LoadJsonConfigAction::ParseFile => {
+#                     write!(
+#                         f,
+#                         "error when parsing JSON config file at path {}",
+#                         self.config_path.display()
+#                     )
+#                 }
+#             }
+#         }
+#     }
+#
+#     pub struct UseAnyhowError;
+#
+#     impl<Context> ProvideErrorType<Context> for UseAnyhowError {
+#         type Error = anyhow::Error;
+#     }
+#
+#     pub struct RaiseFrom;
+#
+#     impl<Context, SourceError> ErrorRaiser<Context, SourceError> for RaiseFrom
+#     where
+#         Context: HasErrorType,
+#         Context::Error: From<SourceError>,
+#     {
+#         fn raise_error(e: SourceError) -> Context::Error {
+#             e.into()
+#         }
+#     }
+#
+#     pub struct WrapWithAnyhowContext;
+#
+#     impl<Context, Detail> ErrorWrapper<Context, Detail> for WrapWithAnyhowContext
+#     where
+#         Context: HasErrorType<Error = anyhow::Error>,
+#         Detail: Display + Send + Sync + 'static,
+#     {
+#         fn wrap_error(error: anyhow::Error, detail: Detail) -> anyhow::Error {
+#             error.context(detail)
+#         }
+#     }
+#
+#     pub struct WrapWithAnyhowDebug;
+#
+#     impl<Context, Detail> ErrorWrapper<Context, Detail> for WrapWithAnyhowDebug
+#     where
+#         Context: HasErrorType<Error = anyhow::Error>,
+#         Detail: Debug,
+#     {
+#         fn wrap_error(error: anyhow::Error, detail: Detail) -> anyhow::Error {
+#             error.context(format!("{detail:?}"))
+#         }
+#     }
+# }
+#
+# pub mod contexts {
+#     use std::io;
+#     use std::path::PathBuf;
+#
+#     use cgp::core::component::UseDelegate;
+#     use cgp::core::error::{ErrorRaiserComponent, ErrorTypeComponent};
+#     use cgp::prelude::*;
+#     use serde::Deserialize;
+#
+#     use super::impls::*;
+#     use super::traits::*;
+#
+pub struct App {
+    pub config_path: PathBuf,
+}
+
+#[derive(Deserialize)]
+pub struct AppConfig {
+    pub secret: String,
+}
+
+pub struct AppComponents;
+
+pub struct RaiseAppErrors;
+
+pub struct WrapAppErrors;
+
+impl HasComponents for App {
+    type Components = AppComponents;
+}
+
+delegate_components! {
+    AppComponents {
+        ErrorTypeComponent: UseAnyhowError,
+        ErrorRaiserComponent: UseDelegate<RaiseAppErrors>,
+        ErrorWrapperComponent: UseDelegate<WrapAppErrors>,
+        ConfigLoaderComponent: LoadJsonConfig,
+    }
+}
+
+delegate_components! {
+    RaiseAppErrors {
+        [
+            io::Error,
+            serde_json::Error,
+        ]:
+            RaiseFrom,
+    }
+}
+
+delegate_components! {
+    WrapAppErrors {
+        String: WrapWithAnyhowContext,
+        <'a, Context> ErrLoadJsonConfig<'a, Context>:
+            WrapWithAnyhowDebug,
+        // add other error wrappers here
+    }
+}
+#
+#     impl ProvideConfigType<App> for AppComponents {
+#         type Config = AppConfig;
+#     }
+#
+#     impl ConfigPathGetter<App> for AppComponents {
+#         fn config_path(app: &App) -> &PathBuf {
+#             &app.config_path
+#         }
+#     }
+#
+#     pub trait CanUseApp: CanLoadConfig {}
+#
+#     impl CanUseApp for App {}
+# }
+# }
+```
+
+The above example shows the addition of a new `WrapAppErrors` type, which we
+use with `delegate_components!` to map the handling of
+`String` detail to `WrapWithAnyhowContext`, and `ErrLoadJsonConfig` detail to
+`WrapWithAnyhowDebug`. Following the same pattern, we will be able to customize
+how exactly each error detail is wrapped, by updating the mapping for `WrapAppErrors`.
+
+## Conclusion
+
+In this chapter, we learned about how to perform abstract error wrapping to wrap additional
+details to an abstract error. The pattern for using `CanWrapError` is very similar to the
+patterns that we have previously learned for `CanRaiseError`. So this is mostly a recap
+of the same patterns, and also show readers how you can expect the same CGP pattern
+to be applied in many different places.
+
+Similar to the advice from the previous chapters, it could be overwhelming for beginners
+to try to use the full structured error wrapping patterns introduced in this chapter.
+As a result, we encourage readers to start with using only `String` as the error detail
+when wrapping errors inside practice applications.
+
+The need for structured error wrapping typically would only arise in large-scale applications,
+or when one wants to publish CGP-based library crates for others to build modular applications.
+As such, you can always revisit this chapter at a later time, and refactor your providers
+to make use of structured error details when you really need them.

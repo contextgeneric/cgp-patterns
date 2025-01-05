@@ -39,7 +39,7 @@ pub mod traits {
         Components: DelegateComponent<Detail>,
         Components::Delegate: ErrorWrapper<Context, Detail>,
     {
-        fn wrap_error(error: Context::Error, detail:Detail) -> Context::Error {
+        fn wrap_error(error: Context::Error, detail: Detail) -> Context::Error {
             Components::Delegate::wrap_error(error, detail)
         }
     }
