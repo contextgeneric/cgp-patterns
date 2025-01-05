@@ -287,47 +287,25 @@ and provide additional details so that the user knows that the error occured
 when trying to load the app config.
 Next, we will learn about how to wrap around these errors in CGP.
 
-## Wrapped Source Error
+## Error Wrapper
 
 With the same motivation described in the [previous chapter](./error-reporting.md),
 we would like to make use of CGP to also enable modular error reporting for the
 error details that is being wrapped. This would mean that we want to define a
 generic `Detail` type that can include _structured data_ inside the error
-details. When combined with the abstract error type, we would first define
-a wrapper type `WrapError` to wrap the detail with the error:
+details.
 
-```rust
-pub struct WrapError<Detail, Error> {
-    pub detail: Detail,
-    pub error: Error,
-}
+
+```text
+error when reading config file at path config.json
+
+Caused by:
+    No such file or directory (os error 2)
 ```
 
-The `WrapError` type is made of two public fields, with a `Detail` value and an
-`Error` value.
-We design `WrapError` to be used inside `CanRaiseError`, to add additional error
-details to an error.
+```text
+error when parsing config file at path Cargo.toml
 
-```rust
-# extern crate cgp;
-#
-# use cgp::prelude::*;
-#
-# pub struct WrapError<Detail, Error> {
-#     pub detail: Detail,
-#     pub error: Error,
-# }
-#
-pub trait CanWrapError<Detail>: HasErrorType {
-    fn wrap_error(detail: Detail, error: Self::Error) -> Self::Error;
-}
-
-impl<Context, Detail, Error> CanWrapError<Detail> for Context
-where
-    Context: HasErrorType<Error = Error> + CanRaiseError<WrapError<Detail, Error>>,
-{
-    fn wrap_error(detail: Detail, error: Error) -> Error {
-        Context::raise_error(WrapError { detail, error })
-    }
-}
+Caused by:
+    expected value at line 1 column 2
 ```
