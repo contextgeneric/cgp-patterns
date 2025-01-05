@@ -285,6 +285,7 @@ wrong, and what action needs to be taken to resolve them. To improve the
 error messages, we need to _wrap_ around source errors like `std::io::Error`,
 and provide additional details so that the user knows that the error occured
 when trying to load the app config.
+Next, we will learn about how to wrap around these errors in CGP.
 
 ## Wrapped Source Error
 
@@ -302,5 +303,31 @@ pub struct WrapError<Detail, Error> {
 }
 ```
 
-We can then use `WrapError` inside `CanRaiseError`, to wrap additional error details
-in the form of `CanRaiseError<WrapError<Detail, Context::Error>>`.
+The `WrapError` type is made of two public fields, with a `Detail` value and an
+`Error` value.
+We design `WrapError` to be used inside `CanRaiseError`, to add additional error
+details to an error.
+
+```rust
+# extern crate cgp;
+#
+# use cgp::prelude::*;
+#
+# pub struct WrapError<Detail, Error> {
+#     pub detail: Detail,
+#     pub error: Error,
+# }
+#
+pub trait CanWrapError<Detail>: HasErrorType {
+    fn wrap_error(detail: Detail, error: Self::Error) -> Self::Error;
+}
+
+impl<Context, Detail, Error> CanWrapError<Detail> for Context
+where
+    Context: HasErrorType<Error = Error> + CanRaiseError<WrapError<Detail, Error>>,
+{
+    fn wrap_error(detail: Detail, error: Error) -> Error {
+        Context::raise_error(WrapError { detail, error })
+    }
+}
+```

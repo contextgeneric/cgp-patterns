@@ -1,19 +1,7 @@
 pub mod types {
-    use core::fmt::Debug;
-
     pub struct WrapError<Detail, Error> {
         pub detail: Detail,
         pub error: Error,
-    }
-
-    impl<Detail, Error> Debug for WrapError<Detail, Error>
-    where
-        Detail: Debug,
-        Error: Debug,
-    {
-        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-            write!(f, "{:?}: {:?}", self.detail, self.error)
-        }
     }
 }
 
@@ -21,6 +9,8 @@ pub mod traits {
     use std::path::PathBuf;
 
     use cgp::prelude::*;
+
+    use super::types::*;
 
     #[cgp_component {
         name: ConfigTypeComponent,
@@ -43,9 +33,23 @@ pub mod traits {
     pub trait HasConfigPath {
         fn config_path(&self) -> &PathBuf;
     }
+
+    pub trait CanWrapError<Detail>: HasErrorType {
+        fn wrap_error(detail: Detail, error: Self::Error) -> Self::Error;
+    }
+
+    impl<Context, Detail, Error> CanWrapError<Detail> for Context
+    where
+        Context: HasErrorType<Error = Error> + CanRaiseError<WrapError<Detail, Error>>,
+    {
+        fn wrap_error(detail: Detail, error: Error) -> Error {
+            Context::raise_error(WrapError { detail, error })
+        }
+    }
 }
 
 pub mod impls {
+    use core::fmt::Display;
     use std::{fs, io};
 
     use cgp::core::error::{ErrorRaiser, ProvideErrorType};
@@ -53,6 +57,7 @@ pub mod impls {
     use serde::Deserialize;
 
     use super::traits::*;
+    use super::types::*;
 
     pub struct LoadConfigJson;
 
@@ -60,6 +65,7 @@ pub mod impls {
     where
         Context: HasConfigType
             + HasConfigPath
+            + CanWrapError<String>
             + CanRaiseError<io::Error>
             + CanRaiseError<serde_json::Error>,
         Context::Config: for<'a> Deserialize<'a>,
@@ -67,9 +73,25 @@ pub mod impls {
         fn load_config(context: &Context) -> Result<Context::Config, Context::Error> {
             let config_path = context.config_path();
 
-            let config_bytes = fs::read(config_path).map_err(Context::raise_error)?;
+            let config_bytes = fs::read(config_path).map_err(|e| {
+                Context::wrap_error(
+                    format!(
+                        "error when reading config file at path {}",
+                        config_path.display()
+                    ),
+                    Context::raise_error(e),
+                )
+            })?;
 
-            let config = serde_json::from_slice(&config_bytes).map_err(Context::raise_error)?;
+            let config = serde_json::from_slice(&config_bytes).map_err(|e| {
+                Context::wrap_error(
+                    format!(
+                        "error when parsing config file at path {}",
+                        config_path.display()
+                    ),
+                    Context::raise_error(e),
+                )
+            })?;
 
             Ok(config)
         }
@@ -92,6 +114,18 @@ pub mod impls {
             e.into()
         }
     }
+
+    pub struct WrapWithAnyhow;
+
+    impl<Context, Detail> ErrorRaiser<Context, WrapError<Detail, anyhow::Error>> for WrapWithAnyhow
+    where
+        Context: HasErrorType<Error = anyhow::Error>,
+        Detail: Display + Send + Sync + 'static,
+    {
+        fn raise_error(e: WrapError<Detail, anyhow::Error>) -> anyhow::Error {
+            e.error.context(e.detail)
+        }
+    }
 }
 
 pub mod contexts {
@@ -105,6 +139,7 @@ pub mod contexts {
 
     use super::impls::*;
     use super::traits::*;
+    use super::types::*;
 
     pub struct App {
         pub config_path: PathBuf,
@@ -138,6 +173,8 @@ pub mod contexts {
                 serde_json::Error,
             ]:
                 RaiseFrom,
+            WrapError<String, anyhow::Error>:
+                WrapWithAnyhow,
         }
     }
 
