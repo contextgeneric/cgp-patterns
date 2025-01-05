@@ -52,7 +52,7 @@ pub mod impls {
     use cgp::prelude::*;
     use serde::Deserialize;
 
-    use crate::traits::*;
+    use super::traits::*;
 
     pub struct LoadConfigJson;
 
@@ -103,8 +103,8 @@ pub mod contexts {
     use cgp::prelude::*;
     use serde::Deserialize;
 
-    use crate::impls::*;
-    use crate::traits::*;
+    use super::impls::*;
+    use super::traits::*;
 
     pub struct App {
         pub config_path: PathBuf,
