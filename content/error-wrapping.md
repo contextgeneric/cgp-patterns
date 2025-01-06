@@ -350,13 +350,6 @@ To see how `CanWrapError` works in practice, we can redefine `LoadJsonConfig` to
 #     fn config_path(&self) -> &PathBuf;
 # }
 #
-# #[cgp_component {
-#     provider: ErrorWrapper,
-# }]
-# pub trait CanWrapError<Detail>: HasErrorType {
-#     fn wrap_error(error: Self::Error, detail: Detail) -> Self::Error;
-# }
-#
 pub struct LoadJsonConfig;
 
 impl<Context> ConfigLoader<Context> for LoadJsonConfig
@@ -430,13 +423,7 @@ So we can implement an error wrapper provider for `anyhow::Error` as follows:
 # use core::fmt::Display;
 #
 # use cgp::prelude::*;
-#
-# #[cgp_component {
-#     provider: ErrorWrapper,
-# }]
-# pub trait CanWrapError<Detail>: HasErrorType {
-#     fn wrap_error(error: Self::Error, detail: Detail) -> Self::Error;
-# }
+# use cgp::core::error::ErrorWrapper;
 #
 pub struct WrapWithAnyhowContext;
 
@@ -522,13 +509,6 @@ type as follows:
 # }]
 # pub trait HasConfigPath {
 #     fn config_path(&self) -> &PathBuf;
-# }
-#
-# #[cgp_component {
-#     provider: ErrorWrapper,
-# }]
-# pub trait CanWrapError<Detail>: HasErrorType {
-#     fn wrap_error(error: Self::Error, detail: Detail) -> Self::Error;
 # }
 #
 pub struct LoadJsonConfig;
@@ -627,13 +607,7 @@ as follows:
 # use core::fmt::Debug;
 #
 # use cgp::prelude::*;
-#
-# #[cgp_component {
-#     provider: ErrorWrapper,
-# }]
-# pub trait CanWrapError<Detail>: HasErrorType {
-#     fn wrap_error(error: Self::Error, detail: Detail) -> Self::Error;
-# }
+# use cgp::core::error::ErrorWrapper;
 #
 pub struct WrapWithAnyhowDebug;
 
@@ -691,13 +665,6 @@ pub mod traits {
     pub trait HasConfigPath {
         fn config_path(&self) -> &PathBuf;
     }
-
-    #[cgp_component {
-        provider: ErrorWrapper,
-    }]
-    pub trait CanWrapError<Detail>: HasErrorType {
-        fn wrap_error(error: Self::Error, detail: Detail) -> Self::Error;
-    }
 }
 
 pub mod impls {
@@ -705,7 +672,7 @@ pub mod impls {
     use std::path::PathBuf;
     use std::{fs, io};
 
-    use cgp::core::error::{ErrorRaiser, ProvideErrorType};
+    use cgp::core::error::{ErrorRaiser, ErrorWrapper,ProvideErrorType};
     use cgp::prelude::*;
     use serde::Deserialize;
 
@@ -819,7 +786,7 @@ pub mod contexts {
     use std::path::PathBuf;
 
     use cgp::core::component::UseDelegate;
-    use cgp::core::error::{ErrorRaiserComponent, ErrorTypeComponent};
+    use cgp::core::error::{ErrorRaiserComponent, ErrorWrapperComponent, ErrorTypeComponent};
     use cgp::prelude::*;
     use serde::Deserialize;
 
@@ -888,15 +855,12 @@ we can also make use of the `UseDelegate` pattern to implement delegated error w
 ```rust
 # extern crate cgp;
 #
-# use cgp::prelude::*;
-# use cgp::core::component::UseDelegate;
+# use core::marker::PhantomData;
 #
-# #[cgp_component {
-#     provider: ErrorWrapper,
-# }]
-# pub trait CanWrapError<Detail>: HasErrorType {
-#     fn wrap_error(error: Self::Error, detail: Detail) -> Self::Error;
-# }
+# use cgp::prelude::*;
+# use cgp::core::error::ErrorWrapper;
+#
+# pub struct UseDelegate<Components>(pub PhantomData<Components>);
 #
 impl<Context, Detail, Components> ErrorWrapper<Context, Detail> for UseDelegate<Components>
 where
@@ -925,6 +889,7 @@ to different error wrappers, similar to how we dispatch the error raisers based 
 #     use std::path::PathBuf;
 #
 #     use cgp::core::component::UseDelegate;
+#     use cgp::core::error::ErrorWrapper;
 #     use cgp::prelude::*;
 #
 #     #[cgp_component {
@@ -948,24 +913,6 @@ to different error wrappers, similar to how we dispatch the error raisers based 
 #     pub trait HasConfigPath {
 #         fn config_path(&self) -> &PathBuf;
 #     }
-#
-#     #[cgp_component {
-#         provider: ErrorWrapper,
-#     }]
-#     pub trait CanWrapError<Detail>: HasErrorType {
-#         fn wrap_error(error: Self::Error, detail: Detail) -> Self::Error;
-#     }
-#
-#     impl<Context, Detail, Components> ErrorWrapper<Context, Detail> for UseDelegate<Components>
-#     where
-#         Context: HasErrorType,
-#         Components: DelegateComponent<Detail>,
-#         Components::Delegate: ErrorWrapper<Context, Detail>,
-#     {
-#         fn wrap_error(error: Context::Error, detail: Detail) -> Context::Error {
-#             Components::Delegate::wrap_error(error, detail)
-#         }
-#     }
 # }
 #
 # pub mod impls {
@@ -973,7 +920,7 @@ to different error wrappers, similar to how we dispatch the error raisers based 
 #     use std::path::PathBuf;
 #     use std::{fs, io};
 #
-#     use cgp::core::error::{ErrorRaiser, ProvideErrorType};
+#     use cgp::core::error::{ErrorRaiser, ErrorWrapper, ProvideErrorType};
 #     use cgp::prelude::*;
 #     use serde::Deserialize;
 #
@@ -1099,7 +1046,7 @@ to different error wrappers, similar to how we dispatch the error raisers based 
 #     use std::path::PathBuf;
 #
 #     use cgp::core::component::UseDelegate;
-#     use cgp::core::error::{ErrorRaiserComponent, ErrorTypeComponent};
+#     use cgp::core::error::{ErrorRaiserComponent, ErrorWrapperComponent, ErrorTypeComponent};
 #     use cgp::prelude::*;
 #     use serde::Deserialize;
 #
