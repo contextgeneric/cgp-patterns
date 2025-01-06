@@ -26,7 +26,6 @@
     - [Error Reporting](error-reporting.md)
     - [Error Wrapping](error-wrapping.md)
 - [Field Accessors](field-accessors.md)
-    - [Context-Generic Accessor Provider]()
 - [Component Presets]()
 - [Trait-Generic Providers]()
     - [`WithProvider`]()

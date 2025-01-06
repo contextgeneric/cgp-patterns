@@ -720,3 +720,147 @@ The `ApiClient` context is defined with the fields that we need to implement the
 We then have context-specific implementation of `ApiBaseUrlGetter` and `AuthTokenGettter` to work
 directly with `ApiClient`. With that, our wiring is completed, and we can check that
 `ApiClient` implements `CanQueryMessage`.
+
+## Context-Generic Accessor Provider
+
+Although the previous accessor implementation for `ApiClient` works, we have to have explicit and
+concrete access to the `ApiClient` context in order to implement the accessors.
+While this is not too bad with only two accessor methods, it can quickly become tedious once
+the application grows, and we need to implement many accessors across many contexts.
+It would be more efficient if we can implement _context-generic_ providers for field accessors,
+and then use them for any context that contains a given field.
+
+To make the implementation of context-generic accessors possible, the `cgp` crate offers a derivable
+`HasField` trait that can be used as a proxy to access the fields in a concrete context.
+The trait is defined as follows:
+
+```rust
+# use core::marker::PhantomData;
+#
+pub trait HasField<Tag> {
+    type Value;
+
+    fn get_field(&self, tag: PhantomData<Tag>) -> &Self::Value;
+}
+```
+
+For each of the field inside a concrete context, we can implement a `HasField` instance
+with the `Tag` type representing the field _name_, and the associated type `Value`
+representing the field _type_.
+There is also a `get_field` method, which gets a reference of the field value from
+the context. The `get_field` method accepts an additional `tag` parameter,
+which is just a `PhantomData` with the field name `Tag` as the type.
+This phantom parameter is mainly used to help type inference in Rust,
+as otherwise Rust would not be able to infer which field `Tag` we are trying to access.
+
+We can automatically derive `HasField` instances for a context like `ApiClient`
+by using the derive macro as follows:
+
+```rust
+# extern crate cgp;
+#
+# use cgp::prelude::*;
+#
+#[derive(HasField)]
+pub struct ApiClient {
+    pub api_base_url: String,
+    pub auth_token: String,
+}
+```
+
+The derive macro would then generate the following `HasField` instances for
+`ApiClient`:
+
+```rust
+# extern crate cgp;
+#
+# use core::marker::PhantomData;
+#
+# use cgp::prelude::*;
+#
+# pub struct ApiClient {
+#     pub api_base_url: String,
+#     pub auth_token: String,
+# }
+impl HasField<symbol!("api_base_url")> for ApiClient {
+    type Value = String;
+
+    fn get_field(&self, _tag: PhantomData<symbol!("api_base_url")>) -> &String {
+        &self.api_base_url
+    }
+}
+
+impl HasField<symbol!("auth_token")> for ApiClient {
+    type Value = String;
+
+    fn get_field(&self, _tag: PhantomData<symbol!("auth_token")>) -> &String {
+        &self.auth_token
+    }
+}
+```
+
+## Symbols
+
+In the derived `HasField` instances, we can see the use of `symbol!("api_base_url")`
+and `symbol!("auth_token")` at the position of the `Tag` generic type.
+Recall that a string like `"api_base_url"` is a _value_ of type `&str`,
+but we want to use the string as a _type_.
+To do that, we use the `symbol!` macro to "lift" a string value into a unique
+type, so that we get a _type_ that uniquely identifies the string `"api_base_url"`.
+Basically, this means that if the string content in two different uses of `symbol!`
+are the same, then they would be treated as the same type.
+
+Behind the scene, `symbol!` first use the `Char` type to "lift" individual characters
+into types. The `Char` type is defined as follows:
+
+```rust
+pub struct Char<const CHAR: char>;
+```
+
+We make use of the [_const generics_](https://blog.rust-lang.org/2021/02/26/const-generics-mvp-beta.html)
+feature in Rust to parameterize `Char` with a constant `CHAR` of type `char`.
+The `Char` struct itself has an empty body, because we only want to use it like
+a `char` at the type level.
+
+Note that although we can use const generics to lift individual characters, we can't
+yet use a type like `String` or `&str` inside const generics.
+So until we can use strings inside const generics, we need a different workaround
+to lift strings into types.
+
+We workaround that by constructing a _type-level list_ of characters. So a type like
+`symbol!("abc")` would be desugared to something like:
+
+```rust,ignore
+(Char<'a'>, (Char<'b'>, (Char<'c'>, ())))
+```
+
+In `cgp`, instead of using the native Rust tuple, we define the `Cons` and `Nil`
+types to help identifying type level lists:
+
+```rust
+pub struct Nil;
+
+pub struct Cons<Head, Tail>(pub Head, pub Tail);
+```
+
+Similar to the linked list concepts in Lisp, the `Nil` type is used to represent
+an empty type-level list, and the `Cons` type is used to "add" an element to the
+front of the type-level list.
+
+With that, the actual desugaring of a type like `symbol!("abc")` looks like follows:
+
+```rust,ignore
+Cons<Char<'a'>, Cons<Char<'b'>, Cons<Char<'c'>, Nil>>>
+```
+
+Although the type make look complicated, it has a pretty compact representation from the
+perspective of the Rust compiler. And since we never construct a value out of the symbol
+type at runtime, we don't need to worry about any runtime overhead on using symbol types.
+Aside from that, since we will mostly only use `HasField` to implement context-generic
+accessors, there is negligible compile-time overhead of using `HasField` inside large
+codebases.
+
+It is also worth noting that the current representation of symbols is a temporary
+workaround. Once Rust supports the use of strings inside const generics, we can
+migrate the desugaring of `symbol!` to make use of that to simplify the type
+representation.

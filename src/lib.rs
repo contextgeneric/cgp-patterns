@@ -1,8 +1,10 @@
 use core::fmt::Display;
+use core::marker::PhantomData;
 
 use cgp::core::component::UseDelegate;
 use cgp::core::error::impls::RaiseFrom;
 use cgp::core::error::{ErrorRaiserComponent, ErrorTypeComponent};
+use cgp::core::field::impls::use_field::UseField;
 use cgp::prelude::*;
 use cgp_error_anyhow::{DebugAnyhowError, UseAnyhowError};
 use reqwest::blocking::Client;
@@ -117,9 +119,44 @@ impl<Context> ProvideMessageType<Context> for UseStringMessage {
     type Message = String;
 }
 
+impl<Context, Tag> ApiBaseUrlGetter<Context> for UseField<Tag>
+where
+    Context: HasField<Tag, Value = String>,
+{
+    fn api_base_url(context: &Context) -> &String {
+        context.get_field(PhantomData)
+    }
+}
+
+impl<Context, Tag> AuthTokenGettter<Context> for UseField<Tag>
+where
+    Context: HasAuthTokenType + HasField<Tag, Value = Context::AuthToken>,
+{
+    fn auth_token(context: &Context) -> &Context::AuthToken {
+        context.get_field(PhantomData)
+    }
+}
+
+// #[derive(HasField)]
 pub struct ApiClient {
     pub api_base_url: String,
     pub auth_token: String,
+}
+
+impl HasField<symbol!("api_base_url")> for ApiClient {
+    type Value = String;
+
+    fn get_field(&self, _tag: PhantomData<symbol!("api_base_url")>) -> &String {
+        &self.api_base_url
+    }
+}
+
+impl HasField<symbol!("auth_token")> for ApiClient {
+    type Value = String;
+
+    fn get_field(&self, _tag: PhantomData<symbol!("auth_token")>) -> &String {
+        &self.auth_token
+    }
 }
 
 pub struct ApiClientComponents;
@@ -137,6 +174,8 @@ delegate_components! {
         MessageIdTypeComponent: UseU64MessageId,
         MessageTypeComponent: UseStringMessage,
         AuthTokenTypeComponent: UseStringAuthToken,
+        ApiBaseUrlGetterComponent: UseField<symbol!("api_base_url")>,
+        AuthTokenGettterComponent: UseField<symbol!("auth_token")>,
         MessageQuerierComponent: ReadMessageFromApi,
     }
 }
@@ -145,18 +184,6 @@ delegate_components! {
     RaiseApiErrors {
         reqwest::Error: RaiseFrom,
         ErrStatusCode: DebugAnyhowError,
-    }
-}
-
-impl ApiBaseUrlGetter<ApiClient> for ApiClientComponents {
-    fn api_base_url(api_client: &ApiClient) -> &String {
-        &api_client.api_base_url
-    }
-}
-
-impl AuthTokenGettter<ApiClient> for ApiClientComponents {
-    fn auth_token(api_client: &ApiClient) -> &String {
-        &api_client.auth_token
     }
 }
 
