@@ -1362,6 +1362,12 @@ In such cases, with an accessor trait like `HasApiUrl`, the context can easily m
 custom accessor providers to implement such indirect access. But with direct use of
 `HasFields`, it would be more tedious to implement the indirect access.
 
+That said, similar to other shortcut methods, the direct use of `HasField` can be convenient
+during initial development, as it helps to significantly reduce the number of traits the
+developer needs to keep track of. As a result, we encourage readers to feel free to make
+use of `HasField` as they see fit, and then slowly migrate to proper accessor traits
+when the need arise.
+
 ## Static Accessors
 
 One benefit of defining minimal accessor traits is that we get to implement custom
@@ -1608,3 +1614,67 @@ about keeping the field private or preventing the wrong value being assigned
 at runtime.
 Thanks to the compile-time wiring, we may even get some performance advantage
 as compared to passing around dynamic values at runtime.
+
+## Auto Accessor Traits
+
+The need to define and wire up many CGP components may overwhelm a developer who
+is new to CGP.
+At least during the beginning phase, a project don't usually that much flexibility
+in customizing how fields are accessed.
+As such, some may consider the full use of field accessors introduced in this chapter
+being unnecessarily complicated.
+
+One intermediate way to simplify use of accessor traits is to define them _not_
+as CGP components, but as regular Rust traits with blanket implementations that
+use `HasField`. For example, we can re-define the `HasApiUrl` trait as follows:
+
+```rust
+# extern crate cgp;
+#
+# use core::marker::PhantomData;
+#
+# use cgp::prelude::*;
+#
+pub trait HasApiBaseUrl {
+    fn api_base_url(&self) -> &String;
+}
+
+impl<Context> HasApiBaseUrl for Context
+where
+    Context: HasField<symbol!("api_base_url"), Value = String>,
+{
+    fn api_base_url(&self) -> &String {
+        self.get_field(PhantomData)
+    }
+}
+```
+
+This way, the `HasApiBaseUrl` will always be implemented for any context
+that derive `HasField` and have the relevant field, and
+there is no need to have explicit wiring of `ApiBaseUrlGetterComponent`
+inside the wiring of the context components.
+
+With this, providers like `ReadMessageFromApi` can still use traits like `HasApiBaseUrl`
+to simplify the access of fields. And the context implementors can just use
+`#[derive(HasField)]` without having to worry about the wiring.
+
+The main downside of this approach is that the context cannot easily override the
+implementation of `HaswApiBaseUrl`, unless they don't implement `HasField` at all.
+Nevertheless, it will be straightforward to refactor the trait in the future
+to turn it into a full CGP component.
+
+As a result, this may be an appealing option for readers who want to have a simpler
+experience of using CGP and not use its full power.
+
+## Conclusion
+
+In this chapter, we have learned about different ways to define accessor traits,
+and to implement the accessor providers. The use of a derivable `HasField` trait
+makes it possible to implement context-generic accessor providers without
+requiring direct access to the concrete context. The use of the `UseField` pattern
+unifies the convention of implementing field accessors, and allows contexts
+to choose different field names for the accessors.
+
+As we will see in later chapters, the use of context-generic accessor providers
+make it possible to implement almost everything as context-generic providers,
+and leaving almost no code tied to specific concrete contexts.
