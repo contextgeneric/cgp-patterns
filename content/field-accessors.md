@@ -279,7 +279,7 @@ pub trait HasAuthTokenType {
 }
 
 #[cgp_component {
-    provider: AuthTokenGettter,
+    provider: AuthTokenGetter,
 }]
 pub trait HasAuthToken: HasAuthTokenType {
     fn auth_token(&self) -> &Self::AuthToken;
@@ -347,7 +347,7 @@ inside the `Authorization` HTTP header:
 # }
 #
 # #[cgp_component {
-#     provider: AuthTokenGettter,
+#     provider: AuthTokenGetter,
 # }]
 # pub trait HasAuthToken: HasAuthTokenType {
 #     fn auth_token(&self) -> &Self::AuthToken;
@@ -599,7 +599,7 @@ as follows:
 # }
 #
 # #[cgp_component {
-#     provider: AuthTokenGettter,
+#     provider: AuthTokenGetter,
 # }]
 # pub trait HasAuthToken: HasAuthTokenType {
 #     fn auth_token(&self) -> &Self::AuthToken;
@@ -705,7 +705,7 @@ impl ApiBaseUrlGetter<ApiClient> for ApiClientComponents {
     }
 }
 
-impl AuthTokenGettter<ApiClient> for ApiClientComponents {
+impl AuthTokenGetter<ApiClient> for ApiClientComponents {
     fn auth_token(api_client: &ApiClient) -> &String {
         &api_client.auth_token
     }
@@ -717,7 +717,7 @@ impl CanUseApiClient for ApiClient {}
 ```
 
 The `ApiClient` context is defined with the fields that we need to implement the accessor traits.
-We then have context-specific implementation of `ApiBaseUrlGetter` and `AuthTokenGettter` to work
+We then have context-specific implementation of `ApiBaseUrlGetter` and `AuthTokenGetter` to work
 directly with `ApiClient`. With that, our wiring is completed, and we can check that
 `ApiClient` implements `CanQueryMessage`.
 
@@ -864,3 +864,361 @@ It is also worth noting that the current representation of symbols is a temporar
 workaround. Once Rust supports the use of strings inside const generics, we can
 migrate the desugaring of `symbol!` to make use of that to simplify the type
 representation.
+
+## Using `HasField` in Accessor Providers
+
+Using `HasField`, we can then implement a context-generic provider for `ApiUrlGetter`
+like follows:
+
+```rust
+# extern crate cgp;
+#
+# use core::marker::PhantomData;
+#
+# use cgp::prelude::*;
+#
+# #[cgp_component {
+#     provider: ApiBaseUrlGetter,
+# }]
+# pub trait HasApiBaseUrl {
+#     fn api_base_url(&self) -> &String;
+# }
+#
+pub struct GetApiUrl;
+
+impl<Context> ApiBaseUrlGetter<Context> for GetApiUrl
+where
+    Context: HasField<symbol!("api_url"), Value = String>,
+{
+    fn api_base_url(context: &Context) -> &String {
+        context.get_field(PhantomData)
+    }
+}
+```
+
+The provider `GetApiUrl` is implemented for any `Context` type that implements
+`HasField<symbol!("api_url"), Value = String>`. This means that as long as the
+context uses `#[derive(HasField)]` has an `api_url` field with `String` type,
+then we can use `GetApiUrl` with it.
+
+Similarly, we can implement a context-generic provider for `AuthTokenGetter` as follows:
+
+```rust
+# extern crate cgp;
+#
+# use core::marker::PhantomData;
+#
+# use cgp::prelude::*;
+#
+# #[cgp_component {
+#     name: AuthTokenTypeComponent,
+#     provider: ProvideAuthTokenType,
+# }]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
+#
+# #[cgp_component {
+#     provider: AuthTokenGetter,
+# }]
+# pub trait HasAuthToken: HasAuthTokenType {
+#     fn auth_token(&self) -> &Self::AuthToken;
+# }
+#
+pub struct GetAuthToken;
+
+impl<Context> AuthTokenGetter<Context> for GetAuthToken
+where
+    Context: HasAuthTokenType + HasField<symbol!("auth_token"), Value = Context::AuthToken>,
+{
+    fn auth_token(context: &Context) -> &Context::AuthToken {
+        context.get_field(PhantomData)
+    }
+}
+```
+
+The provider `GetAuthToken` is slightly more complicated, because the `auth_token()` method
+returns an abstract `Context::AuthToken` type.
+To work with that, we first need `Context` to implement `HasAuthTokenType`, and then
+require the `Value` associated type to be the same as `Context::AuthToken`.
+This means that `GetAuthToken` can be used with a context, if it uses
+`#[derive(HasField)]` and has an `auth_token` field with the same type as
+the `AuthToken` type that it implements.
+
+## The `UseField` Pattern
+
+In the previous section, we managed to implement the context-generic accessor providers
+`GetApiUrl` and `GetAuthToken`, without access to the concrete context. However, the field names
+`api_url` and `auth_token` are hardcoded into the provider implementation. This means that
+a concrete context cannot choose different _field names_ for the specific fields, unless
+they manually re-implement the accessors.
+
+There may be different reasons why a context may want to use different names to store the
+field values. For example, there could be two independent accessor providers that happen
+to choose the same field name for different types. A context may also have multiple similar
+fields that serve similar purposes but with slightly different names.
+Whatever the reason is, it would be nice if we can allow the contexts to customize the
+field names, instead of letting the providers to pick fixed field names.
+
+For this purpose, the `cgp` crate provides the `UseField` type that we can use to
+implement accessor providers:
+
+```rust
+# use core::marker::PhantomData;
+#
+pub struct UseField<Tag>(pub PhantomData<Tag>);
+```
+
+Similar to the [`UseDelegate` pattern](./delegated-error-raiser.md), the `UseField` type
+is used as a label for accessor implementations following the `UseField` pattern.
+Using `UseField`, we can implement the providers as follows:
+
+
+```rust
+# extern crate cgp;
+#
+# use core::marker::PhantomData;
+#
+# use cgp::prelude::*;
+use cgp::core::field::impls::use_field::UseField;
+
+# #[cgp_component {
+#     provider: ApiBaseUrlGetter,
+# }]
+# pub trait HasApiBaseUrl {
+#     fn api_base_url(&self) -> &String;
+# }
+#
+# #[cgp_component {
+#     name: AuthTokenTypeComponent,
+#     provider: ProvideAuthTokenType,
+# }]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
+#
+# #[cgp_component {
+#     provider: AuthTokenGetter,
+# }]
+# pub trait HasAuthToken: HasAuthTokenType {
+#     fn auth_token(&self) -> &Self::AuthToken;
+# }
+#
+impl<Context, Tag> ApiBaseUrlGetter<Context> for UseField<Tag>
+where
+    Context: HasField<Tag, Value = String>,
+{
+    fn api_base_url(context: &Context) -> &String {
+        context.get_field(PhantomData)
+    }
+}
+
+impl<Context, Tag> AuthTokenGetter<Context> for UseField<Tag>
+where
+    Context: HasAuthTokenType + HasField<Tag, Value = Context::AuthToken>,
+{
+    fn auth_token(context: &Context) -> &Context::AuthToken {
+        context.get_field(PhantomData)
+    }
+}
+```
+
+Compared to the explicit providers `GetApiUrl` and `GetAuthToken`, we implement
+the traits `ApiBaseUrlGetter` and `AuthTokenGetter` directly on the `UseField`
+type provided by the `cgp` crate.
+The implementation is also parameterized by an additional `Tag` type, to represent
+the name of the field we want to use.
+We can see that the implementation is almost the same as before, except that
+we no longer use `symbol!` to directly refer to the field names.
+
+Using `UseField`, we get to simplify the implementation of `ApiClient` and
+wire up the accessor components directly inside `delegate_components!`:
+
+```rust
+# extern crate cgp;
+# extern crate cgp_error_anyhow;
+# extern crate reqwest;
+# extern crate serde;
+#
+# use core::fmt::Display;
+# use core::marker::PhantomData;
+#
+# use cgp::core::component::UseDelegate;
+# use cgp::core::error::impls::RaiseFrom;
+# use cgp::core::error::{ErrorRaiserComponent, ErrorTypeComponent};
+# use cgp::core::field::impls::use_field::UseField;
+# use cgp::prelude::*;
+# use cgp_error_anyhow::{DebugAnyhowError, UseAnyhowError};
+# use reqwest::blocking::Client;
+# use reqwest::StatusCode;
+# use serde::Deserialize;
+#
+# #[cgp_component {
+#     name: MessageIdTypeComponent,
+#     provider: ProvideMessageIdType,
+# }]
+# pub trait HasMessageIdType {
+#     type MessageId;
+# }
+#
+# #[cgp_component {
+#     name: MessageTypeComponent,
+#     provider: ProvideMessageType,
+# }]
+# pub trait HasMessageType {
+#     type Message;
+# }
+#
+# #[cgp_component {
+#     provider: MessageQuerier,
+# }]
+# pub trait CanQueryMessage: HasMessageIdType + HasMessageType + HasErrorType {
+#     fn query_message(&self, message_id: &Self::MessageId) -> Result<Self::Message, Self::Error>;
+# }
+#
+# #[cgp_component {
+#     provider: ApiBaseUrlGetter,
+# }]
+# pub trait HasApiBaseUrl {
+#     fn api_base_url(&self) -> &String;
+# }
+#
+# #[cgp_component {
+#     name: AuthTokenTypeComponent,
+#     provider: ProvideAuthTokenType,
+# }]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
+#
+# #[cgp_component {
+#     provider: AuthTokenGetter,
+# }]
+# pub trait HasAuthToken: HasAuthTokenType {
+#     fn auth_token(&self) -> &Self::AuthToken;
+# }
+#
+# pub struct ReadMessageFromApi;
+#
+# #[derive(Debug)]
+# pub struct ErrStatusCode {
+#     pub status_code: StatusCode,
+# }
+#
+# #[derive(Deserialize)]
+# pub struct ApiMessageResponse {
+#     pub message: String,
+# }
+#
+# impl<Context> MessageQuerier<Context> for ReadMessageFromApi
+# where
+#     Context: HasMessageIdType<MessageId = u64>
+#         + HasMessageType<Message = String>
+#         + HasApiBaseUrl
+#         + HasAuthToken
+#         + CanRaiseError<reqwest::Error>
+#         + CanRaiseError<ErrStatusCode>,
+#     Context::AuthToken: Display,
+# {
+#     fn query_message(context: &Context, message_id: &u64) -> Result<String, Context::Error> {
+#         let client = Client::new();
+#
+#         let url = format!("{}/api/messages/{}", context.api_base_url(), message_id);
+#
+#         let response = client
+#             .get(url)
+#             .bearer_auth(context.auth_token())
+#             .send()
+#             .map_err(Context::raise_error)?;
+#
+#         let status_code = response.status();
+#
+#         if !status_code.is_success() {
+#             return Err(Context::raise_error(ErrStatusCode { status_code }));
+#         }
+#
+#         let message_response: ApiMessageResponse = response.json().map_err(Context::raise_error)?;
+#
+#         Ok(message_response.message)
+#     }
+# }
+#
+# pub struct UseStringAuthToken;
+#
+# impl<Context> ProvideAuthTokenType<Context> for UseStringAuthToken {
+#     type AuthToken = String;
+# }
+#
+# pub struct UseU64MessageId;
+#
+# impl<Context> ProvideMessageIdType<Context> for UseU64MessageId {
+#     type MessageId = u64;
+# }
+#
+# pub struct UseStringMessage;
+#
+# impl<Context> ProvideMessageType<Context> for UseStringMessage {
+#     type Message = String;
+# }
+#
+# impl<Context, Tag> ApiBaseUrlGetter<Context> for UseField<Tag>
+# where
+#     Context: HasField<Tag, Value = String>,
+# {
+#     fn api_base_url(context: &Context) -> &String {
+#         context.get_field(PhantomData)
+#     }
+# }
+#
+# impl<Context, Tag> AuthTokenGetter<Context> for UseField<Tag>
+# where
+#     Context: HasAuthTokenType + HasField<Tag, Value = Context::AuthToken>,
+# {
+#     fn auth_token(context: &Context) -> &Context::AuthToken {
+#         context.get_field(PhantomData)
+#     }
+# }
+#
+# #[derive(HasField)]
+# pub struct ApiClient {
+#     pub api_base_url: String,
+#     pub auth_token: String,
+# }
+#
+# pub struct ApiClientComponents;
+#
+# pub struct RaiseApiErrors;
+#
+# impl HasComponents for ApiClient {
+#     type Components = ApiClientComponents;
+# }
+#
+delegate_components! {
+    ApiClientComponents {
+        ErrorTypeComponent: UseAnyhowError,
+        ErrorRaiserComponent: UseDelegate<RaiseApiErrors>,
+        MessageIdTypeComponent: UseU64MessageId,
+        MessageTypeComponent: UseStringMessage,
+        AuthTokenTypeComponent: UseStringAuthToken,
+        ApiBaseUrlGetterComponent: UseField<symbol!("api_base_url")>,
+        AuthTokenGetterComponent: UseField<symbol!("auth_token")>,
+        MessageQuerierComponent: ReadMessageFromApi,
+    }
+}
+#
+# delegate_components! {
+#     RaiseApiErrors {
+#         reqwest::Error: RaiseFrom,
+#         ErrStatusCode: DebugAnyhowError,
+#     }
+# }
+#
+# pub trait CanUseApiClient: CanQueryMessage {}
+#
+# impl CanUseApiClient for ApiClient {}
+```
+
+The wiring above uses `UseField<symbol!("api_base_url")>` to implement `ApiBaseUrlGetterComponent`,
+and `UseField<symbol!("auth_token")>` to implement `AuthTokenGetterComponent`.
+With the field names specified explicitly in the wiring, we can easily change the field
+names in the `ApiClient` context, and update the wiring accordingly.

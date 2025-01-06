@@ -50,7 +50,7 @@ pub trait HasAuthTokenType {
 }
 
 #[cgp_component {
-    provider: AuthTokenGettter,
+    provider: AuthTokenGetter,
 }]
 pub trait HasAuthToken: HasAuthTokenType {
     fn auth_token(&self) -> &Self::AuthToken;
@@ -128,7 +128,7 @@ where
     }
 }
 
-impl<Context, Tag> AuthTokenGettter<Context> for UseField<Tag>
+impl<Context, Tag> AuthTokenGetter<Context> for UseField<Tag>
 where
     Context: HasAuthTokenType + HasField<Tag, Value = Context::AuthToken>,
 {
@@ -137,26 +137,10 @@ where
     }
 }
 
-// #[derive(HasField)]
+#[derive(HasField)]
 pub struct ApiClient {
     pub api_base_url: String,
     pub auth_token: String,
-}
-
-impl HasField<symbol!("api_base_url")> for ApiClient {
-    type Value = String;
-
-    fn get_field(&self, _tag: PhantomData<symbol!("api_base_url")>) -> &String {
-        &self.api_base_url
-    }
-}
-
-impl HasField<symbol!("auth_token")> for ApiClient {
-    type Value = String;
-
-    fn get_field(&self, _tag: PhantomData<symbol!("auth_token")>) -> &String {
-        &self.auth_token
-    }
 }
 
 pub struct ApiClientComponents;
@@ -175,7 +159,7 @@ delegate_components! {
         MessageTypeComponent: UseStringMessage,
         AuthTokenTypeComponent: UseStringAuthToken,
         ApiBaseUrlGetterComponent: UseField<symbol!("api_base_url")>,
-        AuthTokenGettterComponent: UseField<symbol!("auth_token")>,
+        AuthTokenGetterComponent: UseField<symbol!("auth_token")>,
         MessageQuerierComponent: ReadMessageFromApi,
     }
 }
