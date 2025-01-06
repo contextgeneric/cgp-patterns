@@ -1,5 +1,6 @@
 use core::fmt::Display;
 use core::marker::PhantomData;
+use std::sync::OnceLock;
 
 use cgp::core::component::UseDelegate;
 use cgp::core::error::impls::RaiseFrom;
@@ -119,15 +120,6 @@ impl<Context> ProvideMessageType<Context> for UseStringMessage {
     type Message = String;
 }
 
-impl<Context, Tag> ApiBaseUrlGetter<Context> for UseField<Tag>
-where
-    Context: HasField<Tag, Value = String>,
-{
-    fn api_base_url(context: &Context) -> &String {
-        context.get_field(PhantomData)
-    }
-}
-
 impl<Context, Tag> AuthTokenGetter<Context> for UseField<Tag>
 where
     Context: HasAuthTokenType + HasField<Tag, Value = Context::AuthToken>,
@@ -137,9 +129,18 @@ where
     }
 }
 
+pub struct UseProductionApiUrl;
+
+impl<Context> ApiBaseUrlGetter<Context> for UseProductionApiUrl {
+    fn api_base_url(_context: &Context) -> &String {
+        static BASE_URL: OnceLock<String> = OnceLock::new();
+
+        BASE_URL.get_or_init(|| "https://api.example.com".into())
+    }
+}
+
 #[derive(HasField)]
 pub struct ApiClient {
-    pub api_base_url: String,
     pub auth_token: String,
 }
 
@@ -158,7 +159,7 @@ delegate_components! {
         MessageIdTypeComponent: UseU64MessageId,
         MessageTypeComponent: UseStringMessage,
         AuthTokenTypeComponent: UseStringAuthToken,
-        ApiBaseUrlGetterComponent: UseField<symbol!("api_base_url")>,
+        ApiBaseUrlGetterComponent: UseProductionApiUrl,
         AuthTokenGetterComponent: UseField<symbol!("auth_token")>,
         MessageQuerierComponent: ReadMessageFromApi,
     }
