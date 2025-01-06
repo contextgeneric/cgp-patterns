@@ -471,3 +471,17 @@ part of the application.
 As we will see in later sections and chapters, breaking the accessor methods
 down to individual traits also allows us to introduce new design patterns
 that can work when the trait contains only one accessor method.
+
+Nevertheless, CGP does not prevent developers to define accessor traits that contain
+multiple types and accessor methods.
+In terms of comfort, it would also make sense for developers who are new to CGP
+to want to define non-minimal traits, since it has been in the mainstream
+programming practices for decades.
+As a result, readers are encourage to feel free to experiment around, and
+include as many types and methods in a CGP trait as they prefer.
+
+On the other hand, for the purpose of this book, we will continue to make use
+of minimal traits, since the book serves as reference materials that should
+encourage best practices to its readers.
+
+## Implementing Accessor Providers

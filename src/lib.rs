@@ -1,6 +1,10 @@
 use core::fmt::Display;
 
+use cgp::core::component::UseDelegate;
+use cgp::core::error::impls::RaiseFrom;
+use cgp::core::error::{ErrorRaiserComponent, ErrorTypeComponent};
 use cgp::prelude::*;
+use cgp_error_anyhow::{DebugAnyhowError, UseAnyhowError};
 use reqwest::blocking::Client;
 use reqwest::StatusCode;
 use serde::Deserialize;
@@ -94,3 +98,68 @@ where
         Ok(message_response.message)
     }
 }
+
+pub struct UseStringAuthToken;
+
+impl<Context> ProvideAuthTokenType<Context> for UseStringAuthToken {
+    type AuthToken = String;
+}
+
+pub struct UseU64MessageId;
+
+impl<Context> ProvideMessageIdType<Context> for UseU64MessageId {
+    type MessageId = u64;
+}
+
+pub struct UseStringMessage;
+
+impl<Context> ProvideMessageType<Context> for UseStringMessage {
+    type Message = String;
+}
+
+pub struct ApiClient {
+    pub api_base_url: String,
+    pub auth_token: String,
+}
+
+pub struct ApiClientComponents;
+
+pub struct RaiseApiErrors;
+
+impl HasComponents for ApiClient {
+    type Components = ApiClientComponents;
+}
+
+delegate_components! {
+    ApiClientComponents {
+        ErrorTypeComponent: UseAnyhowError,
+        ErrorRaiserComponent: UseDelegate<RaiseApiErrors>,
+        MessageIdTypeComponent: UseU64MessageId,
+        MessageTypeComponent: UseStringMessage,
+        AuthTokenTypeComponent: UseStringAuthToken,
+        MessageQuerierComponent: ReadMessageFromApi,
+    }
+}
+
+delegate_components! {
+    RaiseApiErrors {
+        reqwest::Error: RaiseFrom,
+        ErrStatusCode: DebugAnyhowError,
+    }
+}
+
+impl ApiBaseUrlGetter<ApiClient> for ApiClientComponents {
+    fn api_base_url(api_client: &ApiClient) -> &String {
+        &api_client.api_base_url
+    }
+}
+
+impl AuthTokenGettter<ApiClient> for ApiClientComponents {
+    fn auth_token(api_client: &ApiClient) -> &String {
+        &api_client.auth_token
+    }
+}
+
+pub trait CanUseApiClient: CanQueryMessage {}
+
+impl CanUseApiClient for ApiClient {}
