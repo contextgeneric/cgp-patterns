@@ -404,3 +404,70 @@ In the updated code, we make use of reqwest's
 method to include the auth token into the HTTP header.
 In this case, the provider only require `Context::AuthToken` to implement `Display`,
 making it possible to be used with custom `AuthToken` types other than `String`.
+
+## Accessor Method Minimalism
+
+Given that it is common for providers like `ReadMessageFromApi` to use both `HasApiBaseUrl` and
+`HasAuthToken` together, it may be tempting to merge the two traits and define a single trait
+that contains both accessor methods:
+
+```rust
+# extern crate cgp;
+#
+# use cgp::prelude::*;
+#
+# #[cgp_component {
+#     name: AuthTokenTypeComponent,
+#     provider: ProvideAuthTokenType,
+# }]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
+#
+#[cgp_component {
+    provider: ApiClientFieldsGetter,
+}]
+pub trait HasApiClientFields: HasAuthTokenType {
+    fn api_base_url(&self) -> &String;
+
+    fn auth_token(&self) -> &Self::AuthToken;
+}
+```
+
+Although this approach also works, it introduces unnecessary coupling between
+the `api_base_url` field and the `auth_token` field.
+If a provider only needs `api_base_url` but not `auth_token`, it would still
+have to include the dependencies that it don't need.
+Similarly, we can no longer implement separate providers for `ApiClientFieldsGetter`
+to separately provide the fields `api_base_url` and `auth_token` in different ways.
+
+The coupling of unrelated fields also makes it more challenging to evolve the
+application in the future. For example, if we switch to a different authentication
+method like public key cryptography, we now need to remove the `auth_token`
+method and replace it with a different method, which would affect all code
+that depend on `HasApiClientFields`. On the other hand, it is much simpler
+to add an additional getter trait, and gradually deprecate and transition
+providers to use the new trait while still keeping the old trait around.
+
+As an application grows more complex, it would also be common to require
+dozens of accessor methods, which would make a trait like `HasApiClientFields`
+quickly become the bottleneck, and making it difficult for the application
+to further evolve. In general, it is not possible to know up front which
+of the accessor methods are related, and it can be a distraction to
+attempt to make up theories of why it "makes sense" to group accessor
+methods in certain ways.
+
+With the experience of using CGP in real world applications, we find that
+one accessor method per accessor trait is the most effective way to
+quickly iterate on the application implementation.
+This makes it easy to add or remove accessor methods, and it removes a lot of
+cognitive overload on having to think, decide and debate about which trait
+an accessor method should belong or not belong to.
+With the passage of time, it is almost inevitable that an accessor trait
+that contains multiple accessor methods will need to be broken up,
+because some of the accessor methods are no longer applicable to some
+part of the application.
+
+As we will see in later sections and chapters, breaking the accessor methods
+down to individual traits also allows us to introduce new design patterns
+that can work when the trait contains only one accessor method.
