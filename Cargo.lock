@@ -101,7 +101,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "cgp"
 version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#3dc5190a4d687c0a2792e5b3a1426d40c0254118"
+source = "git+https://github.com/contextgeneric/cgp.git#8fe487c4c17f6857d4a30c451516e8a3876e838f"
 dependencies = [
  "cgp-async",
  "cgp-core",
@@ -111,7 +111,7 @@ dependencies = [
 [[package]]
 name = "cgp-async"
 version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#3dc5190a4d687c0a2792e5b3a1426d40c0254118"
+source = "git+https://github.com/contextgeneric/cgp.git#8fe487c4c17f6857d4a30c451516e8a3876e838f"
 dependencies = [
  "cgp-async-macro",
  "cgp-sync",
@@ -120,7 +120,7 @@ dependencies = [
 [[package]]
 name = "cgp-async-macro"
 version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#3dc5190a4d687c0a2792e5b3a1426d40c0254118"
+source = "git+https://github.com/contextgeneric/cgp.git#8fe487c4c17f6857d4a30c451516e8a3876e838f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -130,12 +130,12 @@ dependencies = [
 [[package]]
 name = "cgp-component"
 version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#3dc5190a4d687c0a2792e5b3a1426d40c0254118"
+source = "git+https://github.com/contextgeneric/cgp.git#8fe487c4c17f6857d4a30c451516e8a3876e838f"
 
 [[package]]
 name = "cgp-component-macro"
 version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#3dc5190a4d687c0a2792e5b3a1426d40c0254118"
+source = "git+https://github.com/contextgeneric/cgp.git#8fe487c4c17f6857d4a30c451516e8a3876e838f"
 dependencies = [
  "cgp-component-macro-lib",
 ]
@@ -143,7 +143,7 @@ dependencies = [
 [[package]]
 name = "cgp-component-macro-lib"
 version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#3dc5190a4d687c0a2792e5b3a1426d40c0254118"
+source = "git+https://github.com/contextgeneric/cgp.git#8fe487c4c17f6857d4a30c451516e8a3876e838f"
 dependencies = [
  "itertools",
  "prettyplease",
@@ -155,7 +155,7 @@ dependencies = [
 [[package]]
 name = "cgp-core"
 version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#3dc5190a4d687c0a2792e5b3a1426d40c0254118"
+source = "git+https://github.com/contextgeneric/cgp.git#8fe487c4c17f6857d4a30c451516e8a3876e838f"
 dependencies = [
  "cgp-async",
  "cgp-component",
@@ -169,7 +169,7 @@ dependencies = [
 [[package]]
 name = "cgp-error"
 version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#3dc5190a4d687c0a2792e5b3a1426d40c0254118"
+source = "git+https://github.com/contextgeneric/cgp.git#8fe487c4c17f6857d4a30c451516e8a3876e838f"
 dependencies = [
  "cgp-async",
  "cgp-component",
@@ -180,17 +180,26 @@ dependencies = [
 [[package]]
 name = "cgp-error-anyhow"
 version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#3dc5190a4d687c0a2792e5b3a1426d40c0254118"
+source = "git+https://github.com/contextgeneric/cgp.git#8fe487c4c17f6857d4a30c451516e8a3876e838f"
 dependencies = [
  "anyhow",
  "cgp-core",
 ]
 
 [[package]]
+name = "cgp-error-extra"
+version = "0.2.0"
+source = "git+https://github.com/contextgeneric/cgp.git#8fe487c4c17f6857d4a30c451516e8a3876e838f"
+dependencies = [
+ "cgp-error",
+]
+
+[[package]]
 name = "cgp-extra"
 version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#3dc5190a4d687c0a2792e5b3a1426d40c0254118"
+source = "git+https://github.com/contextgeneric/cgp.git#8fe487c4c17f6857d4a30c451516e8a3876e838f"
 dependencies = [
+ "cgp-error-extra",
  "cgp-inner",
  "cgp-run",
  "cgp-runtime",
@@ -199,7 +208,7 @@ dependencies = [
 [[package]]
 name = "cgp-field"
 version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#3dc5190a4d687c0a2792e5b3a1426d40c0254118"
+source = "git+https://github.com/contextgeneric/cgp.git#8fe487c4c17f6857d4a30c451516e8a3876e838f"
 dependencies = [
  "cgp-component",
  "cgp-type",
@@ -208,7 +217,7 @@ dependencies = [
 [[package]]
 name = "cgp-field-macro"
 version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#3dc5190a4d687c0a2792e5b3a1426d40c0254118"
+source = "git+https://github.com/contextgeneric/cgp.git#8fe487c4c17f6857d4a30c451516e8a3876e838f"
 dependencies = [
  "cgp-field-macro-lib",
  "proc-macro2",
@@ -217,7 +226,7 @@ dependencies = [
 [[package]]
 name = "cgp-field-macro-lib"
 version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#3dc5190a4d687c0a2792e5b3a1426d40c0254118"
+source = "git+https://github.com/contextgeneric/cgp.git#8fe487c4c17f6857d4a30c451516e8a3876e838f"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -228,7 +237,7 @@ dependencies = [
 [[package]]
 name = "cgp-inner"
 version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#3dc5190a4d687c0a2792e5b3a1426d40c0254118"
+source = "git+https://github.com/contextgeneric/cgp.git#8fe487c4c17f6857d4a30c451516e8a3876e838f"
 dependencies = [
  "cgp-component",
  "cgp-component-macro",
@@ -252,7 +261,7 @@ dependencies = [
 [[package]]
 name = "cgp-run"
 version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#3dc5190a4d687c0a2792e5b3a1426d40c0254118"
+source = "git+https://github.com/contextgeneric/cgp.git#8fe487c4c17f6857d4a30c451516e8a3876e838f"
 dependencies = [
  "cgp-async",
  "cgp-component",
@@ -263,7 +272,7 @@ dependencies = [
 [[package]]
 name = "cgp-runtime"
 version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#3dc5190a4d687c0a2792e5b3a1426d40c0254118"
+source = "git+https://github.com/contextgeneric/cgp.git#8fe487c4c17f6857d4a30c451516e8a3876e838f"
 dependencies = [
  "cgp-core",
 ]
@@ -280,7 +289,7 @@ dependencies = [
 [[package]]
 name = "cgp-type"
 version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#3dc5190a4d687c0a2792e5b3a1426d40c0254118"
+source = "git+https://github.com/contextgeneric/cgp.git#8fe487c4c17f6857d4a30c451516e8a3876e838f"
 dependencies = [
  "cgp-component",
  "cgp-component-macro",

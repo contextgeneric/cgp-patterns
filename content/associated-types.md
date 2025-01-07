@@ -1,19 +1,10 @@
 # Associated Types
 
-In the first part of this book, we have learned about how CGP makes use of
-Rust's trait system to wire up components using blanket implementations.
-Since CGP works within Rust's trait system, we can make use of advanced
-Rust features together with CGP to form new design patterns.
-In this chapter, we will learn about how to make use of _associated types_
-with CGP to define context-generic providers that are generic over multiple
-_abstract_ types.
+In the first part of this book, we explored how CGP leverages Rust's trait system to wire up components using blanket implementations. Because CGP operates within Rust's trait system, it allows us to incorporate advanced Rust features to create new design patterns. In this chapter, we will focus on using _associated types_ with CGP to define context-generic providers that are generic over multiple _abstract_ types.
 
 ## Building Authentication Components
 
-Supposed that we want to build a simple authentication system using _bearer tokens_
-with expiry time. To build such system, we would need to fetch the expiry time of
-a valid token, and ensure that the time is not in the past. A naive attempt of
-implementing the authentication would be as follows:
+Suppose we want to build a simple authentication system using _bearer tokens_ with an expiration time. To achieve this, we need to fetch the expiration time of a valid token and ensure that it is not in the past. A naive approach to implementing the authentication might look like the following:
 
 ```rust
 # extern crate cgp;
@@ -133,36 +124,17 @@ pub mod contexts {
 # }
 ```
 
-We first define `CanValidateAuthToken`, which would be used as the main API for validating an
-auth token. In order to help implementing the validator, we also define
-`CanFetchAuthTokenExpiry` used for fetching the expiry time of an auth token, if the token is valid.
-Finally, we also define `HasCurrentTime` which is used for fetching the current time.
+In this example, we first define the `CanValidateAuthToken` trait, which serves as the primary API for validating authentication tokens. To facilitate the implementation of the validator, we also define the `CanFetchAuthTokenExpiry` trait, which is responsible for fetching the expiration time of an authentication token — assuming the token is valid. Finally, the `HasCurrentTime` trait is introduced to retrieve the current time.
 
-We then define a context-generic provider `ValidateTokenIsNotExpired`, which validates auth tokens
-by fetching the token's expiry time and the current time, and ensure that the token's expiry time
-does not exceed the current time. We also define a context-generic provider `GetSystemTimestamp`,
-which gets the current time using `std::time::System::now()`.
+Next, we define a context-generic provider, `ValidateTokenIsNotExpired`, which validates authentication tokens by comparing their expiration time with the current time. The provider fetches both the token’s expiration time and the current time, and ensure that the token is still valid. Additionally, we define another context-generic provider, `GetSystemTimestamp`, which retrieves the current time using `std::time::SystemTime::now()`.
 
-For the purpose of this demo, we also define a concrete context `MockApp`, which contains a
-`auth_tokens_store` field with mocked collection of auth tokens with respective expiry time
-stored in a `BTreeMap`.
-We then implement a context-specific provider of `AuthTokenExpiryFetcher` for `MockApp`,
-which reads from the mocked `auth_tokens_store`.
-We also define a check trait `CanUseMockApp`, to check that `MockApp` correctly implements
-`CanValidateAuthToken` with the wiring provided.
+For this demonstration, we introduce a concrete context, `MockApp`, which includes an `auth_tokens_store` field. This store is a mocked collection of authentication tokens with their respective expiration times, stored in a `BTreeMap`. We also implement the `AuthTokenExpiryFetcher` trait specifically for the `MockApp` context, which retrieves expiration times from the mocked `auth_tokens_store`. Lastly, we define the `CanUseMockApp` trait, ensuring that `MockApp` properly implements the `CanValidateAuthToken` trait through the provided wiring.
 
 ## Abstract Types
 
-The naive example above makes use of basic CGP techniques to implement a reusable provider
-`ValidateTokenIsNotExpired`, which can be used with different concrete contexts.
-However, we can see that the method signatures are tied to specific types.
-In particular, we used `String` to represent the auth token, and `u64` to
-represent the unix timestamp in milliseconds.
+The previous example demonstrates basic CGP techniques for implementing a reusable provider, `ValidateTokenIsNotExpired`, which can work with different concrete contexts. However, the method signatures are tied to specific types. For instance, we use `String` to represent the authentication token and `u64` to represent the Unix timestamp in milliseconds.
 
-Common wisdom tells us that we should use distinct types to distinguish values
-from specific domains, so that we do not accidentally mix up values from different
-domains. A common approach in Rust is to make use of the _newtype pattern_ to
-define wrapper types such as follows:
+Common practice suggests that we should use distinct types to differentiate values from different domains, reducing the chance of mixing them up. A common approach in Rust is to use the _newtype pattern_ to define wrapper types, like so:
 
 ```rust
 pub struct AuthToken {
@@ -174,16 +146,9 @@ pub struct Time {
 }
 ```
 
-Although the newtype pattern abstracts over the underlying value, it does not allow
-our code to be generalized over distinct types. For example, instead of defining
-our own `Time` type with Unix timestamp semantics, we may want to use a datetime
-library such as `chrono` or `datetime`. However, the exact choice of a datetime
-library may depend on the specific use case of a concrete application.
+While the newtype pattern helps abstract over underlying values, it doesn't fully generalize the code to work with different types. For example, instead of defining our own `Time` type with Unix timestamp semantics, we may want to use a datetime library such as `datetime` or `chrono`. The choice of library could depend on the specific use case of a concrete application.
 
-A better approach would be to define an _abstract_ time type, so that we can
-implement context-generic providers that can work with _any_ time type that
-the concrete context chooses. We can do this in CGP by defining _type traits_
-that contain _associated types_:
+A more flexible approach is to define an _abstract_ `Time` type that allows us to implement context-generic providers compatible with _any_ `Time` type chosen by the concrete context. This can be achieved in CGP by defining _type traits_ that contain _associated types_:
 
 ```rust
 # extern crate cgp;
@@ -207,19 +172,11 @@ pub trait HasAuthTokenType {
 }
 ```
 
-We first introduce a `HasTimeType` trait, which contains only an associated type
-`Time`. We also have additional constraints that the abstract `Time` type must
-implement `Eq` and `Ord`, so that we compare between two time values.
-Similarly, we also introduce a `HasAuthTokenType` trait, which contains an `AuthToken`
-associated type, but without any extra constraint.
+Here, we define the `HasTimeType` trait with an associated type `Time`, which is constrained to types that implement `Eq` and `Ord` so that they can be compared. Similarly, the `HasAuthTokenType` trait defines an associated type `AuthToken`, without any additional constraints.
 
-Similar to trait methods, we can use CGP to auto derive blanket implementations
-that delegate the implementation associated types to providers using `HasComponents`
-and `DelegateComponent`. As such, we can use `#[cgp_component]` also on traits that
-contain associated types.
+Similar to regular trait methods, CGP allows us to auto-derive blanket implementations that delegate the associated types to providers using `HasComponents` and `DelegateComponent`. Therefore, we can use `#[cgp_component]` on traits containing associated types as well.
 
-With the type traits defined, we can update our authentication components to make
-use of the abstract types inside the trait methods:
+With these type traits in place, we can now update our authentication components to leverage abstract types within the trait methods:
 
 ```rust
 # extern crate cgp;
@@ -268,14 +225,9 @@ pub trait HasCurrentTime: HasTimeType {
 }
 ```
 
-The trait `CanValidateAuthToken` is updated to include `HasAuthTokenType`
-as a supertrait, so that it can accept the abstract type `Self::AuthToken`
-inside the method parameter `validate_auth_token`.
-Similarly, `CanFetchAuthTokenExpiry` requires both `HasAuthTokenType`
-and `HasTimeType`, while `HasCurrentTime` only requires `HasTimeType`.
+Here, we modify the `CanValidateAuthToken` trait to include `HasAuthTokenType` as a supertrait, allowing it to accept the abstract type `Self::AuthToken` as a method parameter. Likewise, `CanFetchAuthTokenExpiry` requires both `HasAuthTokenType` and `HasTimeType`, while `HasCurrentTime` only requires `HasTimeType`.
 
-With the abstract types in place, we can now redefine `ValidateTokenIsNotExpired`
-to be implemented generically over _any_ abstract `Time` and `AuthToken` types.
+With the abstract types defined, we can now update `ValidateTokenIsNotExpired` to work generically with any `Time` and `AuthToken` types:
 
 ```rust
 # extern crate cgp;
@@ -344,18 +296,29 @@ where
 }
 ```
 
-Through this example, we can see that CGP allows us to define context-generic providers
-that are not only generic over the main context, but also all its associated types.
-Compared to regular generic programming, instead of specifying all generic parameters
-by position, we are able to parameterize the abstract types using _names_, in the form
-of associated types.
+This example shows how CGP enables us to define context-generic providers that are not just generic over the context itself, but also over its associated types. Unlike traditional generic programming, where all generic parameters are specified positionally, CGP allows us to parameterize abstract types using _names_ via associated types.
+
+## Defining Abstract Type Traits with `cgp_type!`
+
+The type traits `HasTimeType` and `HasAuthTokenType` share a similar structure, and as you define more abstract types, this boilerplate can become tedious. To streamline the process, the `cgp` crate provides the `cgp_type!` macro, which simplifies type trait definitions.
+
+Here's how you can define the same types with `cgp_type!`:
+
+```rust
+# extern crate cgp;
+#
+use cgp::prelude::*;
+
+cgp_type!( Time: Eq + Ord );
+cgp_type!( AuthToken );
+```
+
+The `cgp_type!` macro accepts the name of an abstract type, `$name`, along with any applicable constraints for that type. It then automatically generates the same implementation as the `cgp_component` macro: a consumer trait named `Has{$name}Type`, a provider trait named `Provide{$name}Type`, and a component name type named `${name}TypeComponent`. Each of the generated traits includes an associated type defined as `type $name: $constraints;`.
+In addition, `cgp_type!` also derives some other implementations, which we'll explore in later chapters.
 
 ## Trait Minimalism
 
-It may look overly verbose to define multiple type traits and require
-the exact type trait to to be included as the supertrait of a method
-interface. For example, one may be tempted to define just one trait
-that contains methods and types, such as:
+At first glance, it might seem overly verbose to define multiple type traits and require each to be explicitly included as a supertrait of a method interface. For instance, you might be tempted to consolidate the methods and types into a single trait, like this:
 
 ```rust
 # extern crate cgp;
@@ -380,54 +343,37 @@ pub trait AppTrait {
 }
 ```
 
-However, doing so introduces unnecessary _coupling_ between unrelated types and methods.
-For example, an application may want to implement the token validation by forwarding the
-validation to an external _microservice_. In such case, it would be redundant to require
-the application to choose a time type that it won't actually use.
+While this approach might seem simpler, it introduces unnecessary _coupling_ between
+potentially unrelated types and methods. For example, an application implementing
+token validation might delegate this functionality to an external microservice.
+In such a case, it is redundant to require the application to specify a Time type that
+it doesn’t actually use.
 
 In practice, we find the practical benefits of defining many _minimal_ traits often
 outweight any theoretical advantages of combining multiple items into one trait.
 As we will demonstrate in later chapters, having traits that contain only one type
-or method would also enable more advanced CGP patterns to be applied to such traits.
+or method would also enable more advanced CGP patterns to be applied, including
+the use of `cgp_type!` that we have just covered.
 
-Because of this, we encourage readers to follow our advice and be _encouraged_
-to use as many minimal traits without worrying about any theoretical overhead.
-That said, this advice is _non-binding_, so readers are free to add as many items
-as they prefer into a trait, and perhaps go through the hard way of learning why the
-alternative is better.
+We encourage readers to embrace minimal traits without concern for theoretical overhead. However, during the early phases of a project, you might prefer to consolidate items to reduce cognitive overload while learning or prototyping. As the project matures, you can always refactor and decompose larger traits into smaller, more focused ones, following the techniques outlined in this book.
 
 ## Impl-Side Associated Type Constraints
 
-The minimalism philosophy for CGP also extends to the constraints specified
-on the associated type inside a type trait.
-Looking back at the definition of `HasTimeType`:
+The minimalism philosophy of CGP extends to the constraints placed on associated types within type traits. Consider the earlier definition of `HasTimeType`:
 
 ```rust
 # extern crate cgp;
 #
 # use cgp::prelude::*;
 #
-#[cgp_component {
-    name: TimeTypeComponent,
-    provider: ProvideTimeType,
-}]
-pub trait HasTimeType {
-    type Time: Eq + Ord;
-}
+cgp_type!( Time: Eq + Ord );
 ```
 
-The associated `Time` type has the constraint `Eq + Ord` specified. With this, the constraints
-are imposed on _all_ concrete time types, regardless of whether they are actually used by
-the providers. In fact, if we revisit our previous code, we could notice that the `Eq`
-constraint is not reallying being used anywhere.
+Here, the associated `Time` type is constrained by `Eq + Ord`. This means that all concrete implementations of `Time` must satisfy these constraints, regardless of whether they are actually required by the providers. In fact, if we revisit our previous examples, we notice that the `Eq` constraint isn’t used anywhere.
 
-For this reason, the constraints specified on the associated type often become a bottleneck
-that significantly restricts how the application can evolve. For example, as the application
-grows more complex, it is not uncommon to now require `Time` to implement many additional traits,
-such as `Debug + Display + Clone + Hash + Serialize + Deserialize` and so on.
+Such overly restrictive constraints can become a bottleneck as the application evolves. As complexity increases, it’s common to require additional traits on `Time`, such as `Debug + Display + Clone + Hash + Serialize + Deserialize` and so on. Imposing these constraints globally limits flexibility and makes it harder to adapt to changing requirements.
 
-Fortunately with CGP, we can reuse the same techniques as impl-side dependencies, and apply
-them on the associated type constraints:
+Fortunately, CGP allows us to apply the same principle of impl-side dependencies to associated type constraints. Consider the following example:
 
 ```rust
 # extern crate cgp;
@@ -436,21 +382,9 @@ them on the associated type constraints:
 # use anyhow::{anyhow, Error};
 # use cgp::prelude::*;
 #
-#[cgp_component {
-    name: TimeTypeComponent,
-    provider: ProvideTimeType,
-}]
-pub trait HasTimeType {
-    type Time;
-}
+cgp_type!( Time );
 
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
-# pub trait HasAuthTokenType {
-#     type AuthToken;
-# }
+# cgp_type!( AuthToken );
 #
 # #[cgp_component {
 #     provider: AuthTokenValidator,
@@ -497,35 +431,17 @@ where
 }
 ```
 
-In the above example, we redefine `HasTimeType::Time` to _not_ have any constraint.
-Then in the provider implementation of `ValidateTokenIsNotExpired`, we add an
-additional constraint that requires `Context::Time: Ord`. This way,
-`ValidateTokenIsNotExpired` is able to compare the token expiry time, even
-when `Ord` is not specified on `HasTimeType::Time`.
+In this example, we redefine `HasTimeType::Time` _without_ any constraints. Instead, we specify the constraint `Context::Time: Ord` in the provider implementation for `ValidateTokenIsNotExpired`. This ensures that the `ValidateTokenIsNotExpired` provider can compare the token expiry time using `Ord`, while avoiding unnecessary global constraints on `Time`.
 
-With this approach, we can _conditionally_ require `HasTimeType::Time` to implement
-`Ord`, only when `ValidateTokenIsNotExpired` is used as the provider.
-This essentially allows the abstract types to scale in the same way as the generic
-context types, and allows us to make use of the same CGP patterns also on abstract types.
+By applying constraints on the implementation side, we can conditionally require `HasTimeType::Time` to implement `Ord`, but only when the `ValidateTokenIsNotExpired` provider is in use. This approach allows abstract types to scale flexibly alongside generic context types, enabling the same CGP patterns to be applied to abstract types.
 
-That said, in some cases it is still convenient to directly include constraints
-such as `Debug` on an associated type, especially if the constraint is used in
-almost all providers. With the current state of error reporting, including
-all constraints on the associated type also tend to provide better error messages,
-when there is any unsatisfied constraint.
+In some cases, it can still be convenient to include constraints (e.g., `Debug`) directly on an associated type, especially if those constraints are nearly universal across providers. Additionally, current Rust error reporting often produces clearer error messages when constraints are defined at the associated type level, as opposed to being deferred to the implementation.
 
-As a guideline, we encourage readers to first try to define type traits without
-including any constraint on the associated type, and try to include the constraints
-on the impl-side as often as possible. However readers are free to include default
-constraints to associated types as they see fit, at least for relatively trivial
-types such as `Debug` and `Eq`.
+As a guideline, we recommend that readers begin by defining type traits without placing constraints on associated types, relying instead on implementation-side constraints wherever possible. However, readers may choose to apply global constraints to associated types when appropriate, particularly for simple and widely applicable traits like `Debug` and `Eq`.
 
 ## Type Providers
 
-With the type abstraction in place, we can define different context-generic
-providers for the `Time` and `AuthToken` abstract types.
-For instance, we can define a provider that provides `std::time::Instant`
-as the `Time` type:
+With type abstraction in place, we can define context-generic providers for the `Time` and `AuthToken` abstract types. For example, we can create a provider that uses `std::time::Instant` as the `Time` type:
 
 ```rust
 # extern crate cgp;
@@ -567,26 +483,11 @@ where
 }
 ```
 
-Our context-generic provider `UseInstant` can be used to implement
-`ProvideTimeType` for any `Context` type, by setting the associated
-type `Time` to be `Instant`.
-Additionally, `UseInstant` also implements `CurrentTimeGetter`
-for any `Context` type, _provided_ that `Context::Time` is the
-same as `Instant`.
-The type equality constraint works similar to how regular impl-side
-dependencies work, and would be used frequently for scope-limited
-access to the underlying concrete type for an abstract type.
+Here, the `UseInstant` provider implements `ProvideTimeType` for any `Context` type by setting the associated type `Time` to `Instant`. Additionally, it implements `CurrentTimeGetter` for any `Context`, _provided_ that `Context::Time` is `Instant`. This type equality constraint works similarly to regular implementation-side dependencies and is frequently used for scope-limited access to a concrete type associated with an abstract type.
 
-Note that this type equality constraint is required in this case,
-because a context may _not_ necessary choose `UseInstant` as
-the provider for `ProvideTimeType`. As a result, there is an
-additional constraint that `UseInstant` can only implement
-`CurrentTimeGetter`, if `Context` uses it or a different
-provider that also uses `Instant` to implement `Time`.
+The type equality constraint is necessary because a given context might not always use `UseInstant` as the provider for `ProvideTimeType`. Instead, the context could choose a different provider that uses another type to represent `Time`. Consequently, `UseInstant` can only implement `CurrentTimeGetter` if the `Context` uses it or another provider that also uses `Instant` as its `Time` type.
 
-Aside from `Instant`, we can also implement separate time providers that
-make use of a different time type, such as
-[`datetime::LocalDateTime`](https://docs.rs/datetime/latest/datetime/struct.LocalDateTime.html):
+Aside from `Instant`, we can also define alternative providers for `Time`, using other types like [`datetime::LocalDateTime`](https://docs.rs/datetime/latest/datetime/struct.LocalDateTime.html):
 
 ```rust
 # extern crate cgp;
@@ -628,18 +529,9 @@ where
 }
 ```
 
-Since our application only require `Time` to implement `Ord`,
-and the ability to get the current time, we can easily swap between different
-time providers if they satisfy all the dependencies we need.
-As the application grows, there may be additional constraints imposed on
-the time type, which may restrict the available choice of concrete time types.
-But with CGP, we can incrementally introduce new dependencies according
-the needs of the application, so that we do not prematurely restrict
-our choices based on dependencies that are not used by the application.
+Since our application only requires the `Time` type to implement `Ord` and the ability to retrieve the current time, we can easily swap between different time providers, as long as they meet these dependencies. As the application evolves, additional constraints might be introduced on the Time type, potentially limiting the available concrete time types. However, with CGP, we can incrementally introduce new dependencies based on the application’s needs, avoiding premature restrictions caused by unused requirements.
 
-Similar to the abstract `Time` type, we can also define a context-generic
-provider for `ProvideAuthTokenType`, which implements `AuthToken` using
-`String`:
+Similarly, for the abstract `AuthToken` type, we can define a context-generic provider `ProvideAuthTokenType` that uses `String` as its implementation:
 
 ```rust
 # extern crate cgp;
@@ -661,31 +553,57 @@ impl<Context> ProvideAuthTokenType<Context> for UseStringAuthToken {
 }
 ```
 
-Notice that compared to the newtype pattern, we can opt to use plain old `String`
-_without_ wrapping it around a newtype struct. Contradicting to common wisdom,
-with CGP we do not put as much emphasis of requiring newtype wrapping every
-abstract type used by the application. This is particularly the case if the
-majority of the application is written as context-generic code. The reason
-for this is because the abstract types and their accompanying interfaces
-already serve the same purpose as newtypes, and so there are less needs
-to "protect" the raw values by wrapping them inside newtypes.
+Compared to the newtype pattern, we can use plain `String` values directly, without wrapping them in a newtype struct. Contrary to common wisdom, in CGP, we place less emphasis on wrapping every domain type in a newtype. This is particularly true when most of the application is written in a context-generic style. The rationale is that abstract types and their accompanying interfaces already fulfill the role of newtypes by encapsulating and "protecting" raw values, reducing the need for additional wrapping.
 
-That being said, readers are free to define newtypes and use them together with
-abstract types. This would be helpful at least for beginners, as there are
-different approaches that we will discuss in later chapters on how to properly
-restrict the access of underlying concrete types inside context-generic code.
-Newtypes would also still be useful, if the values are also accessed by
-non-trival non-context-generic code, which would have unrestricted access to
-the concrete type.
+That said, readers are free to define newtypes and use them alongside abstract types. For beginners, this can be especially useful, as later chapters will explore methods to properly restrict access to underlying concrete types in context-generic code. Additionally, newtypes remain valuable when the raw values are also used in non-context-generic code, where access to the concrete types is unrestricted.
 
-In this book, we will continue using the pattern of implementing abstract types
-using plain types without additional newtype wrapping. We will revisit the topic
-of comparing newtypes and abstract types in later chapters.
+Throughout this book, we will primarily use plain types to implement abstract types, without additional newtype wrapping. However, we will revisit the comparison between newtypes and abstract types in later chapters, providing further guidance on when each approach is most appropriate.
+
+## The `UseType` Pattern
+
+Implementing type providers can quickly become repetitive as the number of abstract types grows. For example, to use `String` as the `AuthToken` type, we first need to define a new struct, `UseStringAuthToken`, and then implement `ProvideAuthTokenType` for it. To streamline this process, the `cgp_type!` macro simplifies the implementation by automatically generating a provider using the _`UseType`_ pattern. The generated implementation looks like this:
+
+```rust
+# extern crate cgp;
+#
+# use core::marker::PhantomData;
+#
+# use cgp::prelude::*;
+#
+# #[cgp_component {
+#     name: AuthTokenTypeComponent,
+#     provider: ProvideAuthTokenType,
+# }]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
+#
+pub struct UseType<Type>(pub PhantomData<Type>);
+
+impl<Context, AuthToken> ProvideAuthTokenType<Context> for UseType<AuthToken> {
+    type AuthToken = AuthToken;
+}
+```
+
+Here, `UseType` is a _marker_ type with a generic parameter `Type`, representing the type to be used for a given type trait. Since `PhantomData` is its only field, `UseType` is never intended to be used as a runtime value. The generic implementation of `ProvideAuthTokenType` for `UseType` ensures that the AuthToken type is directly set to the `Type` parameter of `UseType`.
+
+With this generic implementation, we can redefine `UseStringAuthToken` as a simple type alias for `UseType<String>`:
+
+```rust
+# use core::marker::PhantomData;
+#
+# pub struct UseType<Type>(pub PhantomData<Type>);
+#
+type UseStringAuthToken = UseType<String>;
+```
+
+In fact, we can even skip defining type aliases altogether and use `UseType` directly in the `delegate_components` macro when wiring type providers.
+
+The `UseType` struct is included in the `cgp` crate, and when you define an abstract type using the `cgp_type!` macro, the corresponding generic `UseType` implementation is automatically derived. This makes `UseType` a powerful tool for simplifying component wiring and reducing boilerplate in your code.
 
 ## Putting It Altogether
 
-With all pieces in place, we can put together everything we learn, and refactor
-our naive authentication components to make use of abstract types as follows:
+With all the pieces in place, we can now apply what we've learned and refactor our naive authentication components to utilize abstract types, as shown below:
 
 ```rust
 # extern crate cgp;
@@ -697,21 +615,8 @@ pub mod traits {
     use anyhow::Error;
     use cgp::prelude::*;
 
-    #[cgp_component {
-        name: TimeTypeComponent,
-        provider: ProvideTimeType,
-    }]
-    pub trait HasTimeType {
-        type Time;
-    }
-
-    #[cgp_component {
-        name: AuthTokenTypeComponent,
-        provider: ProvideAuthTokenType,
-    }]
-    pub trait HasAuthTokenType {
-        type AuthToken;
-    }
+    cgp_type!( Time );
+    cgp_type!( AuthToken );
 
     #[cgp_component {
         provider: AuthTokenValidator,
@@ -740,6 +645,7 @@ pub mod traits {
 
 pub mod impls {
     use anyhow::{anyhow, Error};
+    use cgp::prelude::*;
     use datetime::LocalDateTime;
 
     use super::traits::*;
@@ -781,12 +687,6 @@ pub mod impls {
             Ok(LocalDateTime::now())
         }
     }
-
-    pub struct UseStringAuthToken;
-
-    impl<Context> ProvideAuthTokenType<Context> for UseStringAuthToken {
-        type AuthToken = String;
-    }
 }
 
 pub mod contexts {
@@ -815,7 +715,7 @@ pub mod contexts {
                 TimeTypeComponent,
                 CurrentTimeGetterComponent,
             ]: UseLocalDateTime,
-            AuthTokenTypeComponent: UseStringAuthToken,
+            AuthTokenTypeComponent: UseType<String>,
             AuthTokenValidatorComponent: ValidateTokenIsNotExpired,
         }
     }
@@ -841,12 +741,6 @@ pub mod contexts {
 # }
 ```
 
-Compared to before, it is now much easier for us to update the `MockApp` context to
-use different time and auth token providers. In case if we need to use different
-concrete types for different use cases, we can also easily define additional
-context types with different wirings, without having to duplicate the core logic.
+Compared to our earlier approach, it is now much easier to update the `MockApp` context to use different time and auth token providers. If different use cases require distinct concrete types, we can easily define additional context types with different configurations, all without duplicating the core logic.
 
-At this point, we have make use of abstract types on the time and auth token types,
-but we are still using a concrete `anyhow::Error` type. In the next chapter, we
-will look into the topic of error handling, and learn how to make use of
-abstract error types to better handle application errors.
+So far, we have applied abstract types to the `Time` and `AuthToken` types, but we are still relying on the concrete `anyhow::Error` type. In the next chapter, we will explore error handling in depth and learn how to use abstract error types to improve the way application errors are managed.
