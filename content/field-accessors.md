@@ -480,7 +480,31 @@ programming practices for decades.
 As a result, readers are encourage to feel free to experiment around, and
 include as many types and methods in a CGP trait as they prefer.
 
-On the other hand, for the purpose of this book, we will continue to make use
+As an alternative to defining multiple accessor methods, you may also consider defining an inner struct that contains all the common fields that you might want to use with most of your providers:
+
+```rust
+# extern crate cgp;
+#
+# use cgp::prelude::*;
+#
+pub struct ApiClientFields {
+    pub api_base_url: String,
+    pub auth_token: String,
+}
+
+#[cgp_component {
+    provider: ApiClientFieldsGetter,
+}]
+pub trait HasApiClientFields {
+    fn api_client_fields(&self) -> &ApiClientFields;
+}
+```
+
+In the example above, we define an `ApiClientFields` struct that contains both `api_base_url` and `auth_token` fields. With that, we can redefine the `HasApiClientFields` trait to have only one getter method which returns `ApiClientFields`.
+
+Note that a downside of this approach is that we can no longer make use of any abstract type inside the struct. As shown, the `ApiClientFields` field stores the `auth_token` as a concrete `String`, rather than an abstract `AuthToken` type. Because of this, this approach may only work if your providers make no use of fields made of abstract types.
+
+For the purpose of this book, we will continue to make use
 of minimal traits, since the book serves as reference materials that should
 encourage best practices to its readers.
 
