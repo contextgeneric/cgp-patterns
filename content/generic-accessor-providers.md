@@ -1,15 +1,8 @@
 # Context-Generic Accessor Providers
 
-Although the previous accessor implementation for `ApiClient` works, we have to have explicit and
-concrete access to the `ApiClient` context in order to implement the accessors.
-While this is not too bad with only two accessor methods, it can quickly become tedious once
-the application grows, and we need to implement many accessors across many contexts.
-It would be more efficient if we can implement _context-generic_ providers for field accessors,
-and then use them for any context that contains a given field.
+While the previous accessor implementation for `ApiClient` works, it requires explicit and concrete access to the `ApiClient` context to implement the accessors. While this approach is manageable with only a couple of accessor methods, it can quickly become cumbersome as the application grows and requires numerous accessors across multiple contexts. A more efficient approach would be to implement _context-generic_ providers for field accessors, allowing us to reuse them across any context that contains the relevant field.
 
-To make the implementation of context-generic accessors possible, the `cgp` crate offers a derivable
-`HasField` trait that can be used as a proxy to access the fields in a concrete context.
-The trait is defined as follows:
+To enable the implementation of context-generic accessors, the `cgp` crate provides a derivable `HasField` trait. This trait acts as a _proxy_, allowing access to fields in a concrete context. The trait is defined as follows:
 
 ```rust
 # use core::marker::PhantomData;
@@ -21,17 +14,9 @@ pub trait HasField<Tag> {
 }
 ```
 
-For each of the field inside a concrete context, we can implement a `HasField` instance
-with the `Tag` type representing the field _name_, and the associated type `Value`
-representing the field _type_.
-There is also a `get_field` method, which gets a reference of the field value from
-the context. The `get_field` method accepts an additional `tag` parameter,
-which is just a `PhantomData` with the field name `Tag` as the type.
-This phantom parameter is mainly used to help type inference in Rust,
-as otherwise Rust would not be able to infer which field `Tag` we are trying to access.
+For each field within a concrete context, we can implement a `HasField` instance by associating a `Tag` type with the field's _name_ and an associated type `Value` representing the field's _type_. Additionally, the `HasField` trait includes a `get_field` method, which retrieves a reference to the field value from the context. The `get_field` method accepts an additional `tag` parameter, which is a `PhantomData` type parameter tied to the field's name `Tag`. This phantom parameter helps with type inference in Rust, as without it, Rust would not be able to deduce which field associated with `Tag` is being accessed.
 
-We can automatically derive `HasField` instances for a context like `ApiClient`
-by using the derive macro as follows:
+We can automatically derive `HasField` instances for a context like `ApiClient` using the derive macro, as shown below:
 
 ```rust
 # extern crate cgp;
@@ -45,7 +30,7 @@ pub struct ApiClient {
 }
 ```
 
-The derive macro would then generate the following `HasField` instances for
+The derive macro would then generate the corresponding `HasField` instances for
 `ApiClient`:
 
 ```rust
@@ -78,41 +63,23 @@ impl HasField<symbol!("auth_token")> for ApiClient {
 
 ## Symbols
 
-In the derived `HasField` instances, we can see the use of `symbol!("api_base_url")`
-and `symbol!("auth_token")` at the position of the `Tag` generic type.
-Recall that a string like `"api_base_url"` is a _value_ of type `&str`,
-but we want to use the string as a _type_.
-To do that, we use the `symbol!` macro to "lift" a string value into a unique
-type, so that we get a _type_ that uniquely identifies the string `"api_base_url"`.
-Basically, this means that if the string content in two different uses of `symbol!`
-are the same, then they would be treated as the same type.
+In the derived `HasField` instances, we observe the use of `symbol!("api_base_url")` and `symbol!("auth_token")` for the `Tag` generic type. While a string like `"api_base_url"` is a value of type `&str`, we need to use it as a _type_ within the `Tag` parameter. To achieve this, we use the `symbol!` macro to "lift" a string value into a unique type, which allows us to treat the string `"api_base_url"` as a _type_. Essentially, this means that if the string content is the same across two uses of `symbol!`, the types will be treated as equivalent.
 
-Behind the scene, `symbol!` first use the `Char` type to "lift" individual characters
-into types. The `Char` type is defined as follows:
+Behind the scenes, the `symbol!` macro first uses the `Char` type to "lift" individual characters into types. The `Char` type is defined as follows:
 
 ```rust
 pub struct Char<const CHAR: char>;
 ```
 
-We make use of the [_const generics_](https://blog.rust-lang.org/2021/02/26/const-generics-mvp-beta.html)
-feature in Rust to parameterize `Char` with a constant `CHAR` of type `char`.
-The `Char` struct itself has an empty body, because we only want to use it like
-a `char` at the type level.
+This makes use of Rust's [_const generics_](https://blog.rust-lang.org/2021/02/26/const-generics-mvp-beta.html) feature to parameterize `Char` with a constant `CHAR` of type `char`. The `Char` struct itself is empty, as we only use it for type-level manipulation.
 
-Note that although we can use const generics to lift individual characters, we can't
-yet use a type like `String` or `&str` inside const generics.
-So until we can use strings inside const generics, we need a different workaround
-to lift strings into types.
-
-We workaround that by constructing a _type-level list_ of characters. So a type like
-`symbol!("abc")` would be desugared to something like:
+Although we can use const generics to lift individual characters, we currently cannot use a type like `String` or `&str` within const generics. As a workaround, we construct a _type-level list_ of characters. For example, `symbol!("abc")` is desugared to a type-level list of characters like:
 
 ```rust,ignore
 (Char<'a'>, (Char<'b'>, (Char<'c'>, ())))
 ```
 
-In `cgp`, instead of using the native Rust tuple, we define the `Cons` and `Nil`
-types to help identifying type level lists:
+In `cgp`, instead of using Rust’s native tuple, we define the `Cons` and `Nil` types to represent type-level lists:
 
 ```rust
 pub struct Nil;
@@ -120,32 +87,21 @@ pub struct Nil;
 pub struct Cons<Head, Tail>(pub Head, pub Tail);
 ```
 
-Similar to the linked list concepts in Lisp, the `Nil` type is used to represent
-an empty type-level list, and the `Cons` type is used to "add" an element to the
-front of the type-level list.
+The `Nil` type represents an empty type-level list, while `Cons` is used to prepend an element to the front of the list, similar to how linked lists work in Lisp.
 
-With that, the actual desugaring of a type like `symbol!("abc")` looks like follows:
+Thus, the actual desugaring of `symbol!("abc")` looks like this:
 
 ```rust,ignore
 Cons<Char<'a'>, Cons<Char<'b'>, Cons<Char<'c'>, Nil>>>
 ```
 
-Although the type make look complicated, it has a pretty compact representation from the
-perspective of the Rust compiler. And since we never construct a value out of the symbol
-type at runtime, we don't need to worry about any runtime overhead on using symbol types.
-Aside from that, since we will mostly only use `HasField` to implement context-generic
-accessors, there is negligible compile-time overhead of using `HasField` inside large
-codebases.
+While this type may seem complex, it has a compact representation from the perspective of the Rust compiler. Furthermore, since we don’t construct values from symbol types at runtime, there is no runtime overhead associated with them. The use of `HasField` to implement context-generic accessors introduces negligible compile-time overhead, even in large codebases.
 
-It is also worth noting that the current representation of symbols is a temporary
-workaround. Once Rust supports the use of strings inside const generics, we can
-migrate the desugaring of `symbol!` to make use of that to simplify the type
-representation.
+It’s important to note that the current representation of symbols is a temporary workaround. Once Rust supports using strings in const generics, we can simplify the desugaring process and adjust our implementation accordingly.
 
 ## Using `HasField` in Accessor Providers
 
-Using `HasField`, we can then implement a context-generic provider for `ApiUrlGetter`
-like follows:
+With `HasField`, we can implement context-generic providers like `ApiUrlGetter`. Here's an example:
 
 ```rust
 # extern crate cgp;
@@ -173,10 +129,7 @@ where
 }
 ```
 
-The provider `GetApiUrl` is implemented for any `Context` type that implements
-`HasField<symbol!("api_url"), Value = String>`. This means that as long as the
-context uses `#[derive(HasField)]` has an `api_url` field with `String` type,
-then we can use `GetApiUrl` with it.
+In this implementation, `GetApiUrl` is defined for any `Context` type that implements `HasField<symbol!("api_url"), Value = String>`. This means that as long as the context uses `#[derive(HasField)]`, and has a field named `api_url` of type `String`, the `GetApiUrl` provider can be used with it.
 
 Similarly, we can implement a context-generic provider for `AuthTokenGetter` as follows:
 
@@ -214,31 +167,15 @@ where
 }
 ```
 
-The provider `GetAuthToken` is slightly more complicated, because the `auth_token()` method
-returns an abstract `Context::AuthToken` type.
-To work with that, we first need `Context` to implement `HasAuthTokenType`, and then
-require the `Value` associated type to be the same as `Context::AuthToken`.
-This means that `GetAuthToken` can be used with a context, if it uses
-`#[derive(HasField)]` and has an `auth_token` field with the same type as
-the `AuthToken` type that it implements.
+The `GetAuthToken` provider is slightly more complex since the `auth_token` method returns an abstract `Context::AuthToken` type. To handle this, we require the `Context` to implement `HasAuthTokenType` and for the `Value` associated type to match `Context::AuthToken`. This ensures that `GetAuthToken` can be used with any context that has an `auth_token` field of the same type as the `AuthToken` defined in `HasAuthTokenType`.
 
 ## The `UseField` Pattern
 
-In the previous section, we managed to implement the context-generic accessor providers
-`GetApiUrl` and `GetAuthToken`, without access to the concrete context. However, the field names
-`api_url` and `auth_token` are hardcoded into the provider implementation. This means that
-a concrete context cannot choose different _field names_ for the specific fields, unless
-they manually re-implement the accessors.
+In the previous section, we were able to implement context-generic accessor providers like `GetApiUrl` and `GetAuthToken` without directly referencing the concrete context. However, the field names, such as `api_url` and `auth_token`, were hardcoded into the provider implementation. This means that a concrete context cannot choose different _field names_ for these specific fields unless it manually re-implements the accessors.
 
-There may be different reasons why a context may want to use different names to store the
-field values. For example, there could be two independent accessor providers that happen
-to choose the same field name for different types. A context may also have multiple similar
-fields that serve similar purposes but with slightly different names.
-Whatever the reason is, it would be nice if we can allow the contexts to customize the
-field names, instead of letting the providers to pick fixed field names.
+There are various reasons why a context might want to use different names for the field values. For instance, two independent accessor providers might choose the same field name for different types, or a context might have multiple similar fields with slightly different names. In these cases, it would be beneficial to allow the context to customize the field names instead of having the providers pick fixed field names.
 
-For this purpose, the `cgp` crate provides the `UseField` type that we can use to
-implement accessor providers:
+To address this, the `cgp` crate provides the `UseField` type, which we can leverage to implement flexible accessor providers:
 
 ```rust
 # use core::marker::PhantomData;
@@ -246,10 +183,7 @@ implement accessor providers:
 pub struct UseField<Tag>(pub PhantomData<Tag>);
 ```
 
-Similar to the [`UseDelegate` pattern](./delegated-error-raiser.md), the `UseField` type
-is used as a label for accessor implementations following the `UseField` pattern.
-Using `UseField`, we can implement the providers as follows:
-
+Similar to the [`UseDelegate` pattern](./delegated-error-raiser.md), the `UseField` type acts as a marker for accessor implementations that follow the UseField pattern. Using `UseField`, we can define the providers as follows:
 
 ```rust
 # extern crate cgp;
@@ -300,16 +234,11 @@ where
 }
 ```
 
-Compared to the explicit providers `GetApiUrl` and `GetAuthToken`, we implement
-the traits `ApiBaseUrlGetter` and `AuthTokenGetter` directly on the `UseField`
-type provided by the `cgp` crate.
-The implementation is also parameterized by an additional `Tag` type, to represent
-the name of the field we want to use.
-We can see that the implementation is almost the same as before, except that
-we no longer use `symbol!` to directly refer to the field names.
+In contrast to the explicit providers `GetApiUrl` and `GetAuthToken`, we now implement the `ApiBaseUrlGetter` and `AuthTokenGetter` traits directly on the `UseField` type provided by the `cgp` crate. The implementation is parameterized by an additional `Tag` type, which represents the field name we want to access.
 
-Using `UseField`, we get to simplify the implementation of `ApiClient` and
-wire up the accessor components directly inside `delegate_components!`:
+The structure of the implementation is almost the same as before, but instead of using `symbol!` to directly reference the field names, we rely on the `Tag` type to abstract the field names.
+
+By using `UseField`, we can simplify the implementation of `ApiClient` and wire up the accessor components directly within `delegate_components!`:
 
 ```rust
 # extern crate cgp;
@@ -495,10 +424,7 @@ delegate_components! {
 # impl CanUseApiClient for ApiClient {}
 ```
 
-The wiring above uses `UseField<symbol!("api_base_url")>` to implement `ApiBaseUrlGetterComponent`,
-and `UseField<symbol!("auth_token")>` to implement `AuthTokenGetterComponent`.
-With the field names specified explicitly in the wiring, we can easily change the field
-names in the `ApiClient` context, and update the wiring accordingly.
+In this wiring example, `UseField<symbol!("api_base_url")>` is used to implement the `ApiBaseUrlGetterComponent`, and `UseField<symbol!("auth_token")>` is used for the `AuthTokenGetterComponent`. By explicitly specifying the field names in the wiring, we can easily change the field names in the `ApiClient` context and update the wiring accordingly.
 
 ## Using `HasField` Directly Inside Providers
 
