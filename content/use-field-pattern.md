@@ -254,3 +254,9 @@ delegate_components! {
 ```
 
 In this wiring example, `UseField<symbol!("api_base_url")>` is used to implement the `ApiBaseUrlGetterComponent`, and `UseField<symbol!("auth_token")>` is used for the `AuthTokenGetterComponent`. By explicitly specifying the field names in the wiring, we can easily change the field names in the `ApiClient` context and update the wiring accordingly.
+
+## Conclusion
+
+In this chapter, we explored various ways to define accessor traits and implement accessor providers. The `HasField` trait, being derivable, offers a way to create context-generic accessor providers without directly accessing the context's concrete fields. The `UseField` pattern standardizes how field accessors are implemented, enabling contexts to customize field names for the accessors.
+
+As we will see in later chapters, context-generic accessor providers allow us to implement a wide range of functionality without tying code to specific concrete contexts. This approach makes it possible to maintain flexibility and reusability across different contexts.

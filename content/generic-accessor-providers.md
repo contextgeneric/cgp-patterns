@@ -171,16 +171,9 @@ The `GetAuthToken` provider is slightly more complex since the `auth_token` meth
 
 ## Auto Accessor Traits
 
-The need to define and wire up many CGP components may overwhelm a developer who
-is new to CGP.
-At least during the beginning phase, a project don't usually that much flexibility
-in customizing how fields are accessed.
-As such, some may consider the full use of field accessors introduced in this chapter
-being unnecessarily complicated.
+The process of defining and wiring many CGP components can be overwhelming for developers who are new to CGP. In the early stages of a project, there is typically not much need for customizing how fields are accessed. As a result, some developers may find the full use of field accessors introduced in this chapter unnecessarily complex.
 
-One intermediate way to simplify use of accessor traits is to define them _not_
-as CGP components, but as regular Rust traits with blanket implementations that
-use `HasField`. For example, we can re-define the `HasApiUrl` trait as follows:
+To simplify the use of accessor traits, one approach is to define them not as CGP components, but as regular Rust traits with blanket implementations that leverage `HasField`. For example, we can redefine the `HasApiBaseUrl` trait as follows:
 
 ```rust
 # extern crate cgp;
@@ -203,33 +196,19 @@ where
 }
 ```
 
-This way, the `HasApiBaseUrl` will always be implemented for any context
-that derive `HasField` and have the relevant field, and
-there is no need to have explicit wiring of `ApiBaseUrlGetterComponent`
-inside the wiring of the context components.
+With this approach, the `HasApiBaseUrl` trait will be automatically implemented for any context that derives `HasField` and contains the relevant field. There is no longer need for explicit wiring of the `ApiBaseUrlGetterComponent` within the context components.
 
-With this, providers like `ReadMessageFromApi` can still use traits like `HasApiBaseUrl`
-to simplify the access of fields. And the context implementors can just use
-`#[derive(HasField)]` without having to worry about the wiring.
+This approach allows providers, such as `ReadMessageFromApi`, to still use accessor traits like `HasApiBaseUrl` to simplify field access. Meanwhile, context implementers can simply use `#[derive(HasField)]` without having to worry about manual wiring.
 
-The main downside of this approach is that the context cannot easily override the
-implementation of `HaswApiBaseUrl`, unless they don't implement `HasField` at all.
-Nevertheless, it will be straightforward to refactor the trait in the future
-to turn it into a full CGP component.
+The main drawback of this approach is that the context cannot easily override the implementation of `HasApiBaseUrl`, unless it opts not to implement `HasField`. However, it would be straightforward to refactor the trait in the future to convert it into a full CGP component.
 
-As a result, this may be an appealing option for readers who want to have a simpler
-experience of using CGP and not use its full power.
+Overall, this approach may be an appealing option for developers who want a simpler experience with CGP without fully utilizing its advanced features.
 
 ## Static Accessors
 
-One benefit of defining minimal accessor traits is that we get to implement custom
-accessor providers that do not necessarily need to read the field values from the context.
-For example, we can implement _static accessor_ providers that always return a global
-constant value.
+One advantage of defining minimal accessor traits is that it allows the implementation of custom accessor providers that do not necessarily read field values from the context. For instance, we can create _static accessor_ providers that always return a global constant value.
 
-The use of static accessors can be useful when we want to hard code some values for a
-specific context. For instance, we may want to define a production `ApiClient` context
-that always use a hard-coded API URL:
+Static accessors are useful when we want to hard-code values for a specific context. For example, we might define a production `ApiClient` context that always uses a fixed API URL:
 
 ```rust
 # extern crate cgp;
@@ -257,17 +236,11 @@ impl<Context> ApiBaseUrlGetter<Context> for UseProductionApiUrl {
 }
 ```
 
-The provider `UseProductionApiUrl` implements `ApiBaseUrlGetter` for any context type.
-Inside the `api_base_url` method, we first define a static `BASE_URL` value with the
-type `OnceLock<String>`. The use of [`OnceLock`](https://doc.rust-lang.org/std/sync/struct.OnceLock.html)
-allows us to define a global variable in Rust that is initialized exactly once, and
-then remain constant throughout the application.
-This is mainly useful because constructors like `String::from` are not currently `const fn`,
-so we have to make use of `OnceLock::get_or_init` to run the non-const constructor.
-By defining the static variable inside the method, we ensure that the variable can only be
-accessed and initialized by the provider.
+In this example, the `UseProductionApiUrl` provider implements `ApiBaseUrlGetter` for any context type. Inside the `api_base_url` method, we define a `static` variable `BASE_URL` using `OnceLock<String>`. This allows us to initialize the global variable exactly once, and it remains constant throughout the application.
 
-Using `UseProductionApiUrl`, we can now define a production `ApiClient` context such as follows:
+[`OnceLock`](https://doc.rust-lang.org/std/sync/struct.OnceLock.html) is especially useful since constructors like `String::from` are not `const` fn in Rust. By using `OnceLock::get_or_init`, we can run non-const constructors at runtime while still benefiting from compile-time guarantees. The static variable is scoped within the method, so it is only accessible and initialized by the provider.
+
+With `UseProductionApiUrl`, we can now define a production `ApiClient` context, as shown below:
 
 ```rust
 # extern crate cgp;
@@ -456,25 +429,13 @@ delegate_components! {
 # impl CanUseApiClient for ApiClient {}
 ```
 
-Inside the component wiring, we choose `UseProductionApiUrl` to be the provider
-for `ApiBaseUrlGetterComponent`.
-Notice that now the `ApiClient` context no longer contain any `api_base_url` field.
+In the component wiring, we specify `UseProductionApiUrl` as the provider for `ApiBaseUrlGetterComponent`. Notably, the `ApiClient` context no longer contains the `api_base_url` field.
 
-The use of static accessors can be useful to implement specialized contexts
-that keep the values constant for certain fields.
-With this approach, the constant values no longer needs to be passed around
-as part of the context during runtime, and we no longer need to worry
-about keeping the field private or preventing the wrong value being assigned
-at runtime.
-Thanks to the compile-time wiring, we may even get some performance advantage
-as compared to passing around dynamic values at runtime.
+Static accessors are particularly useful for implementing specialized contexts where certain fields must remain constant. With this approach, constant values don't need to be passed around as part of the context during runtime, and there's no concern about incorrect values being assigned at runtime. Additionally, because of the compile-time wiring, this method may offer performance benefits compared to passing dynamic values during execution.
 
 ## Using `HasField` Directly Inside Providers
 
-Since the `HasField` trait can be automatically derived by contexts, some readers may be
-tempted to not define any accessor trait, and instead make use of `HasField` directly
-inside the providers. For example, we can in principle remove `HasApiBaseUrl` and
-`HasAuthToken`, and re-implement `ReadMessageFromApi` as follows:
+Since the `HasField` trait can be automatically derived by contexts, some developers may be tempted to forgo defining accessor traits and instead use `HasField` directly within the providers. For example, one could remove `HasApiBaseUrl` and `HasAuthToken` and implement `ReadMessageFromApi` as follows:
 
 ```rust
 # extern crate cgp;
@@ -571,25 +532,13 @@ where
 }
 ```
 
-In the implementation above, the provider `ReadMessageFromApi` requires the context to implement
-`HasField<symbol!("api_base_url")>` and `HasField<symbol!("auth_token")>`.
-To preserve the original behavior, we also have additional constraints that the field `api_base_url`
-needs to be of `String` type, and the field `auth_token` needs to have the same type as
-`Context::AuthToken`.
-When using `get_field`, since there are two instances of `HasField` implemented in scope,
-we need to fully qualify the call to specify the field name that we want to access,
-such as `context.get_field(PhantomData::<symbol!("api_base_url")>)`.
+In the example above, the provider `ReadMessageFromApi` requires the context to implement `HasField<symbol!("api_base_url")>` and `HasField<symbol!("auth_token")>`. To preserve the original behavior, we add constraints ensuring that the `api_base_url` field is of type `String` and that the `auth_token` field matches the type of `Context::AuthToken`.
 
-As we can see, the direct use of `HasField` may not necessary make the code simpler, and instead
-require more verbose specification of the fields. The direct use of `HasFields` also requires
-explicit specification of what the field types should be.
-Whereas in accessor traits like `HasAuthToken`, we can better specify that the method always
-return the abstract type `Self::AuthToken`, so one cannot accidentally read from different
-fields that happen to have the same underlying concrete type.
+When using `get_field`, since there are multiple `HasField` instances in scope, we need to fully qualify the field access to specify which field we want to retrieve. For example, we call `context.get_field(PhantomData::<symbol!("api_base_url")>)` to access the `api_base_url` field.
 
-By using `HasField` directly, the provider also makes it less flexible for the context to have
-custom ways of getting the field value. For example, instead of putting the `api_url` field
-directly in the context, we may want to put it inside another `ApiConfig` struct such as follows:
+However, while the direct use of `HasField` is possible, it does not necessarily simplify the code. In fact, it often requires more verbose specifications for each field. Additionally, using `HasField` directly necessitates explicitly defining the field types. In contrast, with custom accessor traits like `HasAuthToken`, we can specify that a method returns an abstract type like `Self::AuthToken, which prevents accidental access to fields with the same underlying concrete type.
+
+Using `HasField` directly also makes the provider less flexible if the context requires custom access methods. For instance, if we wanted to put the `api_base_url` field inside a separate `ApiConfig` struct, we would run into difficulties with `HasField`:
 
 ```rust
 pub struct Config {
@@ -604,25 +553,6 @@ pub struct ApiClient {
 }
 ```
 
-In such cases, with an accessor trait like `HasApiUrl`, the context can easily make use of
-custom accessor providers to implement such indirect access. But with direct use of
-`HasFields`, it would be more tedious to implement the indirect access.
+In this case, an accessor trait like `HasApiUrl` would allow the context to easily use a custom accessor provider. With direct use of `HasField`, however, indirect access would be more cumbersome to implement.
 
-That said, similar to other shortcut methods, the direct use of `HasField` can be convenient
-during initial development, as it helps to significantly reduce the number of traits the
-developer needs to keep track of. As a result, we encourage readers to feel free to make
-use of `HasField` as they see fit, and then slowly migrate to proper accessor traits
-when the need arise.
-
-## Conclusion
-
-In this chapter, we have learned about different ways to define accessor traits,
-and to implement the accessor providers. The use of a derivable `HasField` trait
-makes it possible to implement context-generic accessor providers without
-requiring direct access to the concrete context. The use of the `UseField` pattern
-unifies the convention of implementing field accessors, and allows contexts
-to choose different field names for the accessors.
-
-As we will see in later chapters, the use of context-generic accessor providers
-make it possible to implement almost everything as context-generic providers,
-and leaving almost no code tied to specific concrete contexts.
+That said, using `HasField` directly can be convenient during the initial development stages, as it reduces the number of traits a developer needs to manage. Therefore, we encourage readers to use `HasField` where appropriate and gradually migrate to more specific accessor traits when necessary.
