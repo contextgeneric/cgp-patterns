@@ -697,21 +697,8 @@ pub mod traits {
     use anyhow::Error;
     use cgp::prelude::*;
 
-    #[cgp_component {
-        name: TimeTypeComponent,
-        provider: ProvideTimeType,
-    }]
-    pub trait HasTimeType {
-        type Time;
-    }
-
-    #[cgp_component {
-        name: AuthTokenTypeComponent,
-        provider: ProvideAuthTokenType,
-    }]
-    pub trait HasAuthTokenType {
-        type AuthToken;
-    }
+    cgp_type!( Time );
+    cgp_type!( AuthToken );
 
     #[cgp_component {
         provider: AuthTokenValidator,
@@ -740,6 +727,7 @@ pub mod traits {
 
 pub mod impls {
     use anyhow::{anyhow, Error};
+    use cgp::prelude::*;
     use datetime::LocalDateTime;
 
     use super::traits::*;
@@ -782,11 +770,7 @@ pub mod impls {
         }
     }
 
-    pub struct UseStringAuthToken;
-
-    impl<Context> ProvideAuthTokenType<Context> for UseStringAuthToken {
-        type AuthToken = String;
-    }
+    pub type UseStringAuthToken = UseType<String>;
 }
 
 pub mod contexts {
