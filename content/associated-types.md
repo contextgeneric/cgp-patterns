@@ -646,6 +646,59 @@ That said, readers are free to define newtypes and use them alongside abstract t
 
 Throughout this book, we will primarily use plain types to implement abstract types, without additional newtype wrapping. However, we will revisit the comparison between newtypes and abstract types in later chapters, providing further guidance on when each approach is most appropriate.
 
+## The `UseType` Pattern
+
+The way we implement type providers can quickly become tedious, as the number of abstract types that we need to implement grows. For instance, just to use `String` as `AuthToken`, we need to first define a new struct `UseStringAuthToken`, and then implement `ProvideAuthTokenType` on it. To simplify the implementation of abstract types, the `cgp_type!` macro also generates a provider implementation that uses the `UseType` pattern. The generated implementation is as follows:
+
+```rust
+# extern crate cgp;
+#
+# use core::marker::PhantomData;
+#
+# use cgp::prelude::*;
+#
+# #[cgp_component {
+#     name: AuthTokenTypeComponent,
+#     provider: ProvideAuthTokenType,
+# }]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
+#
+pub struct UseType<Type>(pub PhantomData<Type>);
+
+impl<Context, AuthToken> ProvideAuthTokenType<Context> for UseType<AuthToken> {
+    type AuthToken = AuthToken;
+}
+```
+
+The `UseType` struct is a _marker_ type that is used for implementing the `UseType`
+pattern. It has a generic `Type` parameter, which is used to mark the type that
+we want to use with a given type trait. With `PhantomData` in its body, the `UseType`
+type is not intended to be used as a value anywhere in any code.
+
+We then have a generic implementation of `ProvideAuthTokenType` for `UseType`,
+by implementing the `AuthToken` type with the type that is provided to `UseType`.
+
+With the blanket implementation, we can redefine `UseStringAuthToken` simply
+as an alias to `UseType<String>`:
+
+```rust
+# use core::marker::PhantomData;
+#
+# pub struct UseType<Type>(pub PhantomData<Type>);
+#
+type UseStringAuthToken = UseType<String>;
+```
+
+In fact, we can also skip defining a type alias, and use `UseType` directly inside
+`delegate_components` when wiring the type providers.
+
+The `UseType` struct is provided by the `cgp` crate. When an abstract type is defined
+using `cgp_type!`, the generic implementation for `UseType` is also automatically
+implemented. Hence, can make use of `UseType` directly to simplify our component wiring.
+
+
 ## Putting It Altogether
 
 With all pieces in place, we can put together everything we learn, and refactor
@@ -733,8 +786,6 @@ pub mod impls {
             Ok(LocalDateTime::now())
         }
     }
-
-    pub type UseStringAuthToken = UseType<String>;
 }
 
 pub mod contexts {
@@ -763,7 +814,7 @@ pub mod contexts {
                 TimeTypeComponent,
                 CurrentTimeGetterComponent,
             ]: UseLocalDateTime,
-            AuthTokenTypeComponent: UseStringAuthToken,
+            AuthTokenTypeComponent: UseType<String>,
             AuthTokenValidatorComponent: ValidateTokenIsNotExpired,
         }
     }
