@@ -352,10 +352,9 @@ of associated types.
 
 ## Trait Minimalism
 
-It may look overly verbose to define multiple type traits and require
-the exact type trait to to be included as the supertrait of a method
-interface. For example, one may be tempted to define just one trait
-that contains methods and types, such as:
+At first glance, it might seem overly verbose to define multiple type traits and require
+each to be explicitly included as a supertrait of a method interface. For instance,
+you might be tempted to consolidate the methods and types into a single trait, like this:
 
 ```rust
 # extern crate cgp;
@@ -380,21 +379,18 @@ pub trait AppTrait {
 }
 ```
 
-However, doing so introduces unnecessary _coupling_ between unrelated types and methods.
-For example, an application may want to implement the token validation by forwarding the
-validation to an external _microservice_. In such case, it would be redundant to require
-the application to choose a time type that it won't actually use.
+While this approach might seem simpler, it introduces unnecessary _coupling_ between
+potentially unrelated types and methods. For example, an application implementing
+token validation might delegate this functionality to an external microservice.
+In such a case, it is redundant to require the application to specify a Time type that
+it doesn’t actually use.
 
 In practice, we find the practical benefits of defining many _minimal_ traits often
 outweight any theoretical advantages of combining multiple items into one trait.
 As we will demonstrate in later chapters, having traits that contain only one type
 or method would also enable more advanced CGP patterns to be applied to such traits.
 
-Because of this, we encourage readers to follow our advice and be _encouraged_
-to use as many minimal traits without worrying about any theoretical overhead.
-That said, this advice is _non-binding_, so readers are free to add as many items
-as they prefer into a trait, and perhaps go through the hard way of learning why the
-alternative is better.
+We encourage readers to embrace minimal traits without concern for theoretical overhead. However, during the early phases of a project, you might prefer to consolidate items to reduce cognitive overload while learning or prototyping. As the project matures, you can always refactor and decompose larger traits into smaller, more focused ones, following the techniques outlined in this book.
 
 ## Impl-Side Associated Type Constraints
 
