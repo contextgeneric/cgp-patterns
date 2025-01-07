@@ -27,6 +27,7 @@
     - [Error Wrapping](error-wrapping.md)
 - [Field Accessors](field-accessors.md)
     - [Generic Accessor Providers](generic-accessor-providers.md)
+    - [The `UseField` Pattern](use-field-pattern.md)
 - [Component Presets]()
 - [Trait-Generic Providers]()
     - [`WithProvider`]()
