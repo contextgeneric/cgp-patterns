@@ -552,7 +552,7 @@ as follows:
 # use core::fmt::Display;
 #
 # use cgp::core::component::UseDelegate;
-# use cgp::core::error::impls::RaiseFrom;
+# use cgp::extra::error::RaiseFrom;
 # use cgp::core::error::{ErrorRaiserComponent, ErrorTypeComponent};
 # use cgp::prelude::*;
 # use cgp_error_anyhow::{DebugAnyhowError, UseAnyhowError};
@@ -980,7 +980,7 @@ Using `UseField`, we can implement the providers as follows:
 # use core::marker::PhantomData;
 #
 # use cgp::prelude::*;
-# use cgp::core::field::impls::use_field::UseField;
+# use cgp::core::field::UseField;
 #
 # #[cgp_component {
 #     provider: ApiBaseUrlGetter,
@@ -1044,9 +1044,9 @@ wire up the accessor components directly inside `delegate_components!`:
 # use core::marker::PhantomData;
 #
 # use cgp::core::component::UseDelegate;
-# use cgp::core::error::impls::RaiseFrom;
+# use cgp::extra::error::RaiseFrom;
 # use cgp::core::error::{ErrorRaiserComponent, ErrorTypeComponent};
-# use cgp::core::field::impls::use_field::UseField;
+# use cgp::core::field::UseField;
 # use cgp::prelude::*;
 # use cgp_error_anyhow::{DebugAnyhowError, UseAnyhowError};
 # use reqwest::blocking::Client;
@@ -1428,9 +1428,9 @@ Using `UseProductionApiUrl`, we can now define a production `ApiClient` context 
 # use std::sync::OnceLock;
 #
 # use cgp::core::component::UseDelegate;
-# use cgp::core::error::impls::RaiseFrom;
+# use cgp::extra::error::RaiseFrom;
 # use cgp::core::error::{ErrorRaiserComponent, ErrorTypeComponent};
-# use cgp::core::field::impls::use_field::UseField;
+# use cgp::core::field::UseField;
 # use cgp::prelude::*;
 # use cgp_error_anyhow::{DebugAnyhowError, UseAnyhowError};
 # use reqwest::blocking::Client;
