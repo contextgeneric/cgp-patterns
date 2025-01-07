@@ -350,6 +350,33 @@ Compared to regular generic programming, instead of specifying all generic param
 by position, we are able to parameterize the abstract types using _names_, in the form
 of associated types.
 
+## Defining Abstract Type Traits using `cgp_type!`
+
+The type traits `HasTimeType` and `HasAuthTokenType` follows similar boilerplate,
+and it may quickly become tedious as we define more abstract types. To help with
+defining such type traits, the `cgp` crate provides the `cgp_type!` macro that
+allows us to have much shorter definition as follows:
+
+
+```rust
+# extern crate cgp;
+#
+use cgp::prelude::*;
+
+cgp_type!( Time: Eq + Ord );
+cgp_type!( AuthToken );
+```
+
+The `cgp_type!` macro accepts the name of an abstract type `$name`, together with any
+applicable constraint for that type. It then derives the same implementation as the
+`cgp_component` macro, with a consumer trait named `Has{$name}Type`, a provider trait
+named `Provide{$name}Type`, and a component name `${name}TypeComponent`.
+Inside the traits, there is one associated type defined with `type $name: $constraints;`.
+
+In addition to the standard derivation from `cgp_component`, `cgp_type!` also
+derives some additional implementations, which we will cover the usage in later chapters.
+
+
 ## Trait Minimalism
 
 At first glance, it might seem overly verbose to define multiple type traits and require
@@ -388,7 +415,8 @@ it doesn’t actually use.
 In practice, we find the practical benefits of defining many _minimal_ traits often
 outweight any theoretical advantages of combining multiple items into one trait.
 As we will demonstrate in later chapters, having traits that contain only one type
-or method would also enable more advanced CGP patterns to be applied to such traits.
+or method would also enable more advanced CGP patterns to be applied, including
+the use of `cgp_type!` that we have just covered.
 
 We encourage readers to embrace minimal traits without concern for theoretical overhead. However, during the early phases of a project, you might prefer to consolidate items to reduce cognitive overload while learning or prototyping. As the project matures, you can always refactor and decompose larger traits into smaller, more focused ones, following the techniques outlined in this book.
 
@@ -403,13 +431,7 @@ Looking back at the definition of `HasTimeType`:
 #
 # use cgp::prelude::*;
 #
-#[cgp_component {
-    name: TimeTypeComponent,
-    provider: ProvideTimeType,
-}]
-pub trait HasTimeType {
-    type Time: Eq + Ord;
-}
+cgp_type!( Time: Eq + Ord );
 ```
 
 The associated `Time` type has the constraint `Eq + Ord` specified. With this, the constraints
@@ -432,21 +454,9 @@ them on the associated type constraints:
 # use anyhow::{anyhow, Error};
 # use cgp::prelude::*;
 #
-#[cgp_component {
-    name: TimeTypeComponent,
-    provider: ProvideTimeType,
-}]
-pub trait HasTimeType {
-    type Time;
-}
+cgp_type!( Time );
 
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
-# pub trait HasAuthTokenType {
-#     type AuthToken;
-# }
+# cgp_type!( AuthToken );
 #
 # #[cgp_component {
 #     provider: AuthTokenValidator,
@@ -518,10 +528,7 @@ types such as `Debug` and `Eq`.
 
 ## Type Providers
 
-With the type abstraction in place, we can define different context-generic
-providers for the `Time` and `AuthToken` abstract types.
-For instance, we can define a provider that provides `std::time::Instant`
-as the `Time` type:
+With type abstraction in place, we can define context-generic providers for the `Time` and `AuthToken` abstract types. For example, we can create a provider that uses `std::time::Instant` as the `Time` type:
 
 ```rust
 # extern crate cgp;
@@ -563,26 +570,11 @@ where
 }
 ```
 
-Our context-generic provider `UseInstant` can be used to implement
-`ProvideTimeType` for any `Context` type, by setting the associated
-type `Time` to be `Instant`.
-Additionally, `UseInstant` also implements `CurrentTimeGetter`
-for any `Context` type, _provided_ that `Context::Time` is the
-same as `Instant`.
-The type equality constraint works similar to how regular impl-side
-dependencies work, and would be used frequently for scope-limited
-access to the underlying concrete type for an abstract type.
+Here, the `UseInstant` provider implements `ProvideTimeType` for any `Context` type by setting the associated type `Time` to `Instant`. Additionally, it implements `CurrentTimeGetter` for any `Context`, _provided_ that `Context::Time` is `Instant`. This type equality constraint works similarly to regular implementation-side dependencies and is frequently used for scope-limited access to a concrete type associated with an abstract type.
 
-Note that this type equality constraint is required in this case,
-because a context may _not_ necessary choose `UseInstant` as
-the provider for `ProvideTimeType`. As a result, there is an
-additional constraint that `UseInstant` can only implement
-`CurrentTimeGetter`, if `Context` uses it or a different
-provider that also uses `Instant` to implement `Time`.
+The type equality constraint is necessary because a given context might not always use `UseInstant` as the provider for `ProvideTimeType`. Instead, the context could choose a different provider that uses another type to represent `Time`. Consequently, `UseInstant` can only implement `CurrentTimeGetter` if the `Context` uses it or another provider that also uses `Instant` as its `Time` type.
 
-Aside from `Instant`, we can also implement separate time providers that
-make use of a different time type, such as
-[`datetime::LocalDateTime`](https://docs.rs/datetime/latest/datetime/struct.LocalDateTime.html):
+Aside from `Instant`, we can also define alternative providers for `Time`, using other types like [`datetime::LocalDateTime`](https://docs.rs/datetime/latest/datetime/struct.LocalDateTime.html):
 
 ```rust
 # extern crate cgp;
@@ -624,18 +616,9 @@ where
 }
 ```
 
-Since our application only require `Time` to implement `Ord`,
-and the ability to get the current time, we can easily swap between different
-time providers if they satisfy all the dependencies we need.
-As the application grows, there may be additional constraints imposed on
-the time type, which may restrict the available choice of concrete time types.
-But with CGP, we can incrementally introduce new dependencies according
-the needs of the application, so that we do not prematurely restrict
-our choices based on dependencies that are not used by the application.
+Since our application only requires the `Time` type to implement `Ord` and the ability to retrieve the current time, we can easily swap between different time providers, as long as they meet these dependencies. As the application evolves, additional constraints might be introduced on the Time type, potentially limiting the available concrete time types. However, with CGP, we can incrementally introduce new dependencies based on the application’s needs, avoiding premature restrictions caused by unused requirements.
 
-Similar to the abstract `Time` type, we can also define a context-generic
-provider for `ProvideAuthTokenType`, which implements `AuthToken` using
-`String`:
+Similarly, for the abstract `AuthToken` type, we can define a context-generic provider `ProvideAuthTokenType` that uses `String` as its implementation:
 
 ```rust
 # extern crate cgp;
@@ -657,26 +640,11 @@ impl<Context> ProvideAuthTokenType<Context> for UseStringAuthToken {
 }
 ```
 
-Notice that compared to the newtype pattern, we can opt to use plain old `String`
-_without_ wrapping it around a newtype struct. Contradicting to common wisdom,
-with CGP we do not put as much emphasis of requiring newtype wrapping every
-abstract type used by the application. This is particularly the case if the
-majority of the application is written as context-generic code. The reason
-for this is because the abstract types and their accompanying interfaces
-already serve the same purpose as newtypes, and so there are less needs
-to "protect" the raw values by wrapping them inside newtypes.
+Compared to the newtype pattern, we can use plain `String` values directly, without wrapping them in a newtype struct. Contrary to common wisdom, in CGP, we place less emphasis on wrapping every domain type in a newtype. This is particularly true when most of the application is written in a context-generic style. The rationale is that abstract types and their accompanying interfaces already fulfill the role of newtypes by encapsulating and "protecting" raw values, reducing the need for additional wrapping.
 
-That being said, readers are free to define newtypes and use them together with
-abstract types. This would be helpful at least for beginners, as there are
-different approaches that we will discuss in later chapters on how to properly
-restrict the access of underlying concrete types inside context-generic code.
-Newtypes would also still be useful, if the values are also accessed by
-non-trival non-context-generic code, which would have unrestricted access to
-the concrete type.
+That said, readers are free to define newtypes and use them alongside abstract types. For beginners, this can be especially useful, as later chapters will explore methods to properly restrict access to underlying concrete types in context-generic code. Additionally, newtypes remain valuable when the raw values are also used in non-context-generic code, where access to the concrete types is unrestricted.
 
-In this book, we will continue using the pattern of implementing abstract types
-using plain types without additional newtype wrapping. We will revisit the topic
-of comparing newtypes and abstract types in later chapters.
+Throughout this book, we will primarily use plain types to implement abstract types, without additional newtype wrapping. However, we will revisit the comparison between newtypes and abstract types in later chapters, providing further guidance on when each approach is most appropriate.
 
 ## Putting It Altogether
 
