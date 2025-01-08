@@ -100,8 +100,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "cgp"
-version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#c86ec514facca3e88470daa252bd066a0617ae9b"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "255ecfdb81d1786bf4212e1e038e5f6da8836cbb5603ce2347308ede426dbcea"
 dependencies = [
  "cgp-async",
  "cgp-core",
@@ -110,8 +111,9 @@ dependencies = [
 
 [[package]]
 name = "cgp-async"
-version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#c86ec514facca3e88470daa252bd066a0617ae9b"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7cca3a368634ced2b77f1e00e7ebb0872402a1d8fd6dbf05880329b0a001b37e"
 dependencies = [
  "cgp-async-macro",
  "cgp-sync",
@@ -119,8 +121,9 @@ dependencies = [
 
 [[package]]
 name = "cgp-async-macro"
-version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#c86ec514facca3e88470daa252bd066a0617ae9b"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1656912abbbf7ff2fe11c9680ae5883afe79cac6f2f51bd486d04a3fbba9426"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -129,13 +132,15 @@ dependencies = [
 
 [[package]]
 name = "cgp-component"
-version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#c86ec514facca3e88470daa252bd066a0617ae9b"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12793289566a983f8a3151448cb8820bcc4704c34a0a9cf19bb1ed48e0844e81"
 
 [[package]]
 name = "cgp-component-macro"
-version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#c86ec514facca3e88470daa252bd066a0617ae9b"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f37331b62cbb29d159d2c3bc3c21bdc885576d9c024d0e9ea4cb3e7513138897"
 dependencies = [
  "cgp-component-macro-lib",
  "syn",
@@ -143,8 +148,9 @@ dependencies = [
 
 [[package]]
 name = "cgp-component-macro-lib"
-version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#c86ec514facca3e88470daa252bd066a0617ae9b"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29461124d295bf42c48106e81cb0f89a4eb64132752b916d5ec5df9875d03d58"
 dependencies = [
  "itertools",
  "prettyplease",
@@ -155,8 +161,9 @@ dependencies = [
 
 [[package]]
 name = "cgp-core"
-version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#c86ec514facca3e88470daa252bd066a0617ae9b"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "021293135043b9a4f630a1fea79c1cee2de5161e71902e2cd665965945d4b546"
 dependencies = [
  "cgp-async",
  "cgp-component",
@@ -169,8 +176,9 @@ dependencies = [
 
 [[package]]
 name = "cgp-error"
-version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#c86ec514facca3e88470daa252bd066a0617ae9b"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f4b69e873357e304d1a7a91894f40f98543a5f1fac84b3087037110826e4afe"
 dependencies = [
  "cgp-async",
  "cgp-component",
@@ -180,8 +188,9 @@ dependencies = [
 
 [[package]]
 name = "cgp-error-anyhow"
-version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#c86ec514facca3e88470daa252bd066a0617ae9b"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e69c88a7ec1ce29d204d6f9d3b975933a050dc1b1b71da646fc74e56f0cdbe7"
 dependencies = [
  "anyhow",
  "cgp-core",
@@ -189,16 +198,18 @@ dependencies = [
 
 [[package]]
 name = "cgp-error-extra"
-version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#c86ec514facca3e88470daa252bd066a0617ae9b"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffb44c5e45fb8de9d5e8d77a4736c01d09fdee2f4e822b5ea5a3b6243ddbdd9c"
 dependencies = [
  "cgp-error",
 ]
 
 [[package]]
 name = "cgp-extra"
-version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#c86ec514facca3e88470daa252bd066a0617ae9b"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04a67b3e5c5fd4420c0fd16c1e93a9e28a7e10f9aa911b66d7a2b9588fbb11c4"
 dependencies = [
  "cgp-error-extra",
  "cgp-inner",
@@ -208,8 +219,9 @@ dependencies = [
 
 [[package]]
 name = "cgp-field"
-version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#c86ec514facca3e88470daa252bd066a0617ae9b"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "193dec7508c4b4efd6a1ef5eac6789eb0a297561e55dcb8cd377a904f055a176"
 dependencies = [
  "cgp-component",
  "cgp-type",
@@ -217,8 +229,9 @@ dependencies = [
 
 [[package]]
 name = "cgp-field-macro"
-version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#c86ec514facca3e88470daa252bd066a0617ae9b"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7853451aedcc73c0edf67d44ca9652a7b1ba8a18ac0499f4fced1ac845b7711"
 dependencies = [
  "cgp-field-macro-lib",
  "proc-macro2",
@@ -226,8 +239,9 @@ dependencies = [
 
 [[package]]
 name = "cgp-field-macro-lib"
-version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#c86ec514facca3e88470daa252bd066a0617ae9b"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "785d154b6d17929919e3bee306c515c7d78e420303605829e48116fcef2ccf9e"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -237,8 +251,9 @@ dependencies = [
 
 [[package]]
 name = "cgp-inner"
-version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#c86ec514facca3e88470daa252bd066a0617ae9b"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be4e35f1ad7bfb5df01c9f263d054ba53ff87c3d1da20cb5c0872191df904583"
 dependencies = [
  "cgp-component",
  "cgp-component-macro",
@@ -261,8 +276,9 @@ dependencies = [
 
 [[package]]
 name = "cgp-run"
-version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#c86ec514facca3e88470daa252bd066a0617ae9b"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ec7009079ecfd0a5db07a5dda0e7cece70b1774ead842a42919a93b4662eb96"
 dependencies = [
  "cgp-async",
  "cgp-component",
@@ -272,25 +288,27 @@ dependencies = [
 
 [[package]]
 name = "cgp-runtime"
-version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#c86ec514facca3e88470daa252bd066a0617ae9b"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "332d92088b07754adbde9ecdf894b8c3b9303b287c8d82d11f8886a394121925"
 dependencies = [
  "cgp-core",
 ]
 
 [[package]]
 name = "cgp-sync"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a1c0e460bcccd3e2e39ded6a2078f012d3c00b523caafc05b5bdace9205b0cf"
+checksum = "eb37ca18a65f3603aaa307ba76d92f64025db56160143a0e96466b5855d61a29"
 dependencies = [
  "cgp-async-macro",
 ]
 
 [[package]]
 name = "cgp-type"
-version = "0.2.0"
-source = "git+https://github.com/contextgeneric/cgp.git#c86ec514facca3e88470daa252bd066a0617ae9b"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a4638c888a38fbb1c88406c224c38d7b9e230a306e7b07f796280b89f5baa54"
 dependencies = [
  "cgp-component",
  "cgp-component-macro",
