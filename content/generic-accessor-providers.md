@@ -261,13 +261,13 @@ The `GetAuthToken` provider is slightly more complex since the `auth_token` meth
 
 ## The `UseFields` Pattern
 
-The providers `GetAuthToken` and `GetApiUrl` share one thing in common: they all implement accessor traits for any context type by making use of `HasField`, with the field name being the same as the accessor method name. To make the usage pattern clear, the `cgp` offers the `UseFields` marker struct that can be used for implementing such providers:
+The providers `GetAuthToken` and `GetApiUrl` share a common characteristic: they implement accessor traits for any context type by utilizing `HasField`, with the field name corresponding to the accessor method name. To streamline this pattern, `cgp` provides the `UseFields` marker struct, which simplifies the implementation of such providers:
 
 ```rust
 struct UseFields;
 ```
 
-Using `UseFields`, we can skip defining custom provider structs and implement directly on `UseFields` as follows:
+With `UseFields`, we can bypass the need to define custom provider structs and implement the logic directly on `UseFields`, as shown below:
 
 ```rust
 # extern crate cgp;
@@ -283,13 +283,7 @@ Using `UseFields`, we can skip defining custom provider structs and implement di
 #     fn api_base_url(&self) -> &String;
 # }
 #
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
-# pub trait HasAuthTokenType {
-#     type AuthToken;
-# }
+# cgp_type!( AuthToken );
 #
 # #[cgp_component {
 #     provider: AuthTokenGetter,
@@ -317,15 +311,11 @@ where
 }
 ```
 
-
 ## The `#[cgp_getter]` Macro
 
-The `cgp` crate provides the `#[cgp_getter]` macro, which auto derive implementations such as `UseFields`.
-Other than that, it provides the same interface as `#[cgp_component]`, and derives the same component
-traits and blanket implementations.
+The `cgp` crate offers the `#[cgp_getter]` macro, which automatically derives implementations like `UseFields`. As an extension of `#[cgp_component]`, it provides the same interface and generates the same CGP component traits and blanket implementations.
 
-Using `#[cgp_getter]`, we can just define the accessor traits and then make use of `UseFields` directly
-inside the component wiring without additional implementation:
+With `#[cgp_getter]`, you can define accessor traits and seamlessly use `UseFields` directly in the component wiring, eliminating the need for manual implementations:
 
 ```rust
 # extern crate cgp;
@@ -456,13 +446,11 @@ delegate_components! {
 # impl CanUseApiClient for ApiClient {}
 ```
 
-Compared to `#[cgp_auto_getter]`, `#[cgp_getter]` requires the same wiring step as other CGP components.
-But to get the same result as using `#[cgp_auto_getter]`, the only additional step that is required
-is to delegate the getter component to `UseFields` inside `delegate_components`.
+Compared to `#[cgp_auto_getter]`, `#[cgp_getter]` follows the same wiring process as other CGP components. To achieve the same outcome as `#[cgp_auto_getter]`, the only additional step required is delegating the getter component to UseFields within `delegate_components!`.
 
-The main flexibility that we get from using `#[cgp_getter]` is that it is now possible to define custom accessor providers that have different ways to read the fields from the context, as we will see in the next section.
+The primary advantage of using `#[cgp_getter]` is the ability to define custom accessor providers that can retrieve fields from the context in various ways, as we will explore in the next section.
 
-Similar to `#[cgp_auto_getter]`, we can also use `#[cgp_getter]` with accessor traits that contain multiple accessor methods. So in case if we need to use custom accessor providers at a later time, it is straightforward to upgrade a trait like `HasApiClientFields` to use `#[cgp_getter]`:
+Like `#[cgp_auto_getter]`, `#[cgp_getter]` can also be used with accessor traits containing multiple methods. This makes it easy to upgrade a trait, such as `HasApiClientFields`, to use `#[cgp_getter]` if custom accessor providers are needed in the future:
 
 ```rust
 # extern crate cgp;
