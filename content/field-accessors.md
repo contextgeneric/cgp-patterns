@@ -11,21 +11,8 @@ Suppose our application needs to make API calls to an external service to read m
 #
 use cgp::prelude::*;
 
-#[cgp_component {
-    name: MessageIdTypeComponent,
-    provider: ProvideMessageIdType,
-}]
-pub trait HasMessageIdType {
-    type MessageId;
-}
-
-#[cgp_component {
-    name: MessageTypeComponent,
-    provider: ProvideMessageType,
-}]
-pub trait HasMessageType {
-    type Message;
-}
+cgp_type!( Message );
+cgp_type!( MessageId );
 
 #[cgp_component {
     provider: MessageQuerier,
@@ -48,22 +35,9 @@ With the interfaces defined, we now implement a simple API client provider that 
 use reqwest::blocking::Client;
 use reqwest::StatusCode;
 use serde::Deserialize;
-
-# #[cgp_component {
-#     name: MessageIdTypeComponent,
-#     provider: ProvideMessageIdType,
-# }]
-# pub trait HasMessageIdType {
-#     type MessageId;
-# }
 #
-# #[cgp_component {
-#     name: MessageTypeComponent,
-#     provider: ProvideMessageType,
-# }]
-# pub trait HasMessageType {
-#     type Message;
-# }
+# cgp_type!( Message );
+# cgp_type!( MessageId );
 #
 # #[cgp_component {
 #     provider: MessageQuerier,
@@ -153,21 +127,8 @@ Next, we can include the `HasApiBaseUrl` trait within `ReadMessageFromApi`, allo
 # use reqwest::StatusCode;
 # use serde::Deserialize;
 #
-# #[cgp_component {
-#     name: MessageIdTypeComponent,
-#     provider: ProvideMessageIdType,
-# }]
-# pub trait HasMessageIdType {
-#     type MessageId;
-# }
-#
-# #[cgp_component {
-#     name: MessageTypeComponent,
-#     provider: ProvideMessageType,
-# }]
-# pub trait HasMessageType {
-#     type Message;
-# }
+# cgp_type!( Message );
+# cgp_type!( MessageId );
 #
 # #[cgp_component {
 #     provider: MessageQuerier,
@@ -234,13 +195,7 @@ Just as we did with `HasApiBaseUrl`, we can define a `HasAuthToken` trait to ret
 #
 # use cgp::prelude::*;
 #
-#[cgp_component {
-    name: AuthTokenTypeComponent,
-    provider: ProvideAuthTokenType,
-}]
-pub trait HasAuthTokenType {
-    type AuthToken;
-}
+cgp_type!( AuthToken );
 
 #[cgp_component {
     provider: AuthTokenGetter,
@@ -266,21 +221,9 @@ Next, we define a getter trait, `HasAuthToken`, which provides access to an abst
 # use reqwest::StatusCode;
 # use serde::Deserialize;
 #
-# #[cgp_component {
-#     name: MessageIdTypeComponent,
-#     provider: ProvideMessageIdType,
-# }]
-# pub trait HasMessageIdType {
-#     type MessageId;
-# }
-#
-# #[cgp_component {
-#     name: MessageTypeComponent,
-#     provider: ProvideMessageType,
-# }]
-# pub trait HasMessageType {
-#     type Message;
-# }
+# cgp_type!( Message );
+# cgp_type!( MessageId );
+# cgp_type!( AuthToken );
 #
 # #[cgp_component {
 #     provider: MessageQuerier,
@@ -294,14 +237,6 @@ Next, we define a getter trait, `HasAuthToken`, which provides access to an abst
 # }]
 # pub trait HasApiBaseUrl {
 #     fn api_base_url(&self) -> &String;
-# }
-#
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
-# pub trait HasAuthTokenType {
-#     type AuthToken;
 # }
 #
 # #[cgp_component {
@@ -368,13 +303,7 @@ When creating providers like `ReadMessageFromApi`, which often need to use both 
 #
 # use cgp::prelude::*;
 #
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
-# pub trait HasAuthTokenType {
-#     type AuthToken;
-# }
+# cgp_type!( AuthToken );
 #
 #[cgp_component {
     provider: ApiClientFieldsGetter,
@@ -428,59 +357,7 @@ For the purposes of this book, we will continue to use minimal traits, as this e
 
 Now that we have implemented the provider, we would look at how to implement
 a concrete context that uses `ReadMessageFromApi` and implement the accessors.
-
-First of all, we would implement the type traits by implementing type providers
-that fit the constraints of `ReadMessageFromApi`:
-
-```rust
-# extern crate cgp;
-#
-# use cgp::prelude::*;
-#
-# #[cgp_component {
-#     name: MessageIdTypeComponent,
-#     provider: ProvideMessageIdType,
-# }]
-# pub trait HasMessageIdType {
-#     type MessageId;
-# }
-#
-# #[cgp_component {
-#     name: MessageTypeComponent,
-#     provider: ProvideMessageType,
-# }]
-# pub trait HasMessageType {
-#     type Message;
-# }
-#
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
-# pub trait HasAuthTokenType {
-#     type AuthToken;
-# }
-#
-pub struct UseU64MessageId;
-
-impl<Context> ProvideMessageIdType<Context> for UseU64MessageId {
-    type MessageId = u64;
-}
-
-pub struct UseStringMessage;
-
-impl<Context> ProvideMessageType<Context> for UseStringMessage {
-    type Message = String;
-}
-
-pub struct UseStringAuthToken;
-
-impl<Context> ProvideAuthTokenType<Context> for UseStringAuthToken {
-    type AuthToken = String;
-}
-```
-
-We can then implement an `ApiClient` context that makes use of all providers
+We can implement an `ApiClient` context that makes use of all providers
 as follows:
 
 ```rust
@@ -500,21 +377,9 @@ as follows:
 # use reqwest::StatusCode;
 # use serde::Deserialize;
 #
-# #[cgp_component {
-#     name: MessageIdTypeComponent,
-#     provider: ProvideMessageIdType,
-# }]
-# pub trait HasMessageIdType {
-#     type MessageId;
-# }
-#
-# #[cgp_component {
-#     name: MessageTypeComponent,
-#     provider: ProvideMessageType,
-# }]
-# pub trait HasMessageType {
-#     type Message;
-# }
+# cgp_type!( Message );
+# cgp_type!( MessageId );
+# cgp_type!( AuthToken );
 #
 # #[cgp_component {
 #     provider: MessageQuerier,
@@ -528,14 +393,6 @@ as follows:
 # }]
 # pub trait HasApiBaseUrl {
 #     fn api_base_url(&self) -> &String;
-# }
-#
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
-# pub trait HasAuthTokenType {
-#     type AuthToken;
 # }
 #
 # #[cgp_component {
@@ -590,24 +447,6 @@ as follows:
 #     }
 # }
 #
-# pub struct UseStringAuthToken;
-#
-# impl<Context> ProvideAuthTokenType<Context> for UseStringAuthToken {
-#     type AuthToken = String;
-# }
-#
-# pub struct UseU64MessageId;
-#
-# impl<Context> ProvideMessageIdType<Context> for UseU64MessageId {
-#     type MessageId = u64;
-# }
-#
-# pub struct UseStringMessage;
-#
-# impl<Context> ProvideMessageType<Context> for UseStringMessage {
-#     type Message = String;
-# }
-#
 pub struct ApiClient {
     pub api_base_url: String,
     pub auth_token: String,
@@ -625,9 +464,9 @@ delegate_components! {
     ApiClientComponents {
         ErrorTypeComponent: UseAnyhowError,
         ErrorRaiserComponent: UseDelegate<RaiseApiErrors>,
-        MessageIdTypeComponent: UseU64MessageId,
-        MessageTypeComponent: UseStringMessage,
-        AuthTokenTypeComponent: UseStringAuthToken,
+        MessageIdTypeComponent: UseType<u64>,
+        MessageTypeComponent: UseType<String>,
+        AuthTokenTypeComponent: UseType<String>,
         MessageQuerierComponent: ReadMessageFromApi,
     }
 }
