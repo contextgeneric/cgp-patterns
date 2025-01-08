@@ -208,8 +208,7 @@ Overall, this approach may be an appealing option for developers who want a simp
 
 ## The `#[cgp_auto_getter]` Macro
 
-To simplify the definition of auto accessor traits, the `cgp` crate provides the `#[cgp_auto_getter]` macro, to derive the blanket implementation of an accessor trait. So the same example can be
-rewritten as follows:
+To streamline the creation of auto accessor traits, the `cgp` crate provides the `#[cgp_auto_getter]` macro, which derives blanket implementations for accessor traits. For instance, the earlier example can be rewritten as follows:
 
 ```rust
 # extern crate cgp;
@@ -237,11 +236,9 @@ pub trait HasAuthToken: HasAuthTokenType {
 }
 ```
 
-Notice that since `#[cgp_auto_getter]` generates a blanket implementation that uses `HasField`
-directly, there is no corresponding provider trait being derived here.
+Since `#[cgp_auto_getter]` generates a blanket implementation leveraging `HasField` directly, there is no corresponding provider trait being derived in this case.
 
-We can also use `#[cgp_auto_getter]` inside accessor traits that contain multiple getter methods.
-So we can for example combine the two accessor traits as follows:
+The `#[cgp_auto_getter]` attribute can also be applied to accessor traits that define multiple getter methods. For instance, we can combine two accessor traits into one, as shown below:
 
 ```rust
 # extern crate cgp;
@@ -266,7 +263,40 @@ pub trait HasApiClientFields: HasAuthTokenType {
 }
 ```
 
-Using `#[cgp_auto_getter]`, the accessor traits will be automatically be implemented by contexts that use `#[derive(HasField)]`, and has fields that match the name and return type of the accessor methods. In this way, the use of `HasField` and `symbol!` are completely hidden away, and we get to define well-typed and idiomatic interfaces to access the fields.
+By using `#[cgp_auto_getter]`, accessor traits are automatically implemented for contexts that use `#[derive(HasField)]` and include fields matching the names and return types of the accessor methods. This approach encapsulates the use of `HasField` and `symbol!`, providing well-typed and idiomatic interfaces for field access while abstracting the underlying mechanics.
+
+## The `#[cgp_getter]` Macro
+
+```rust
+# extern crate cgp;
+#
+# use core::marker::PhantomData;
+#
+# use cgp::prelude::*;
+#
+# #[cgp_component {
+#     name: AuthTokenTypeComponent,
+#     provider: ProvideAuthTokenType,
+# }]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
+#
+#[cgp_getter {
+    provider: ApiBaseUrlGetter,
+}]
+pub trait HasApiBaseUrl {
+    fn api_base_url(&self) -> &String;
+}
+
+#[cgp_getter {
+    provider: AutoTokenGetter,
+}]
+pub trait HasAuthToken: HasAuthTokenType {
+    fn auth_token(&self) -> &Self::AuthToken;
+}
+```
+
 
 ## Static Accessors
 
