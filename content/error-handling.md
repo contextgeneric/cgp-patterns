@@ -45,13 +45,7 @@ use core::fmt::Debug;
 
 use cgp::prelude::*;
 
-#[cgp_component {
-    name: ErrorTypeComponent,
-    provider: ProvideErrorType,
-}]
-pub trait HasErrorType {
-    type Error: Debug;
-}
+cgp_type!( Error: Debug );
 ```
 
 The trait `HasErrorType` is quite special, in the sense that it serves as a standard
@@ -73,21 +67,8 @@ to use the abstract error type provided by `HasErrorType`:
 #
 # use cgp::prelude::*;
 #
-# #[cgp_component {
-#     name: TimeTypeComponent,
-#     provider: ProvideTimeType,
-# }]
-# pub trait HasTimeType {
-#     type Time;
-# }
-#
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
-# pub trait HasAuthTokenType {
-#     type AuthToken;
-# }
+# cgp_type!( Time );
+# cgp_type!( AuthToken );
 #
 #[cgp_component {
     provider: AuthTokenValidator,
@@ -134,21 +115,8 @@ Using this technique, we can re-write `ValidateTokenIsNotExpired` to convert a s
 #
 # use cgp::prelude::*;
 #
-# #[cgp_component {
-#     name: TimeTypeComponent,
-#     provider: ProvideTimeType,
-# }]
-# pub trait HasTimeType {
-#     type Time;
-# }
-#
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
-# pub trait HasAuthTokenType {
-#     type AuthToken;
-# }
+# cgp_type!( Time );
+# cgp_type!( AuthToken );
 #
 # #[cgp_component {
 #     provider: AuthTokenValidator,
@@ -219,21 +187,8 @@ For example, at a later time, we could replace the string error with a custom
 #
 # use cgp::prelude::*;
 #
-# #[cgp_component {
-#     name: TimeTypeComponent,
-#     provider: ProvideTimeType,
-# }]
-# pub trait HasTimeType {
-#     type Time;
-# }
-#
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
-# pub trait HasAuthTokenType {
-#     type AuthToken;
-# }
+# cgp_type!( Time );
+# cgp_type!( AuthToken );
 #
 # #[cgp_component {
 #     provider: AuthTokenValidator,
@@ -360,21 +315,8 @@ of `From` to raise a source error like `&'static str`:
 #
 # use cgp::prelude::*;
 #
-# #[cgp_component {
-#     name: TimeTypeComponent,
-#     provider: ProvideTimeType,
-# }]
-# pub trait HasTimeType {
-#     type Time;
-# }
-#
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
-# pub trait HasAuthTokenType {
-#     type AuthToken;
-# }
+# cgp_type!( Time );
+# cgp_type!( AuthToken );
 #
 # #[cgp_component {
 #     provider: AuthTokenValidator,
@@ -445,9 +387,9 @@ as follows:
 #
 use cgp::core::error::{ErrorRaiser, HasErrorType};
 
-pub struct RaiseIntoAnyhow;
+pub struct RaiseAnyhowError;
 
-impl<Context, SourceError> ErrorRaiser<Context, SourceError> for RaiseIntoAnyhow
+impl<Context, SourceError> ErrorRaiser<Context, SourceError> for RaiseAnyhowError
 where
     Context: HasErrorType<Error = anyhow::Error>,
     SourceError: core::error::Error + Send + Sync + 'static,
@@ -458,7 +400,7 @@ where
 }
 ```
 
-We define a provider `RaiseIntoAnyhow`, which implements the provider trait
+We define a provider `RaiseAnyhowError`, which implements the provider trait
 `ErrorRaiser` with a generic context `Context` and a generic source error `SourceError`.
 Using impl-side dependencies, we also include an additional constraint that
 the implementation is only valid if `Context` implements `HasErrorType`,
@@ -516,9 +458,9 @@ use core::fmt::Debug;
 use anyhow::anyhow;
 use cgp::core::error::{ErrorRaiser, HasErrorType};
 
-pub struct DebugAsAnyhow;
+pub struct DebugAnyhowError;
 
-impl<Context, SourceError> ErrorRaiser<Context, SourceError> for DebugAsAnyhow
+impl<Context, SourceError> ErrorRaiser<Context, SourceError> for DebugAnyhowError
 where
     Context: HasErrorType<Error = anyhow::Error>,
     SourceError: Debug,
@@ -529,13 +471,13 @@ where
 }
 ```
 
-The provider `DebugAsAnyhow` can raise any source error `SourceError` into `anyhow::Error`,
+The provider `DebugAnyhowError` can raise any source error `SourceError` into `anyhow::Error`,
 given that `SourceError` implements `Debug`. To implement the `raise_error` method, we
 simply use the `anyhow!` macro, and format the source error using `Debug`.
 
-With a context-generic error raiser like `DebugAsAnyhow`, a concrete context
+With a context-generic error raiser like `DebugAnyhowError`, a concrete context
 can now use a provider like `ValidateTokenIsNotExpired`, which can use
-`DebugAsAnyhow` to raise source errors that only implement `Debug`, such as
+`DebugAnyhowError` to raise source errors that only implement `Debug`, such as
 `&'static str` and `ErrAuthTokenHasExpired`.
 
 ## Putting It Altogether
@@ -545,6 +487,7 @@ from the previous chapter, and make it generic over the error type:
 
 ```rust
 # extern crate cgp;
+# extern crate cgp_error_anyhow;
 # extern crate anyhow;
 # extern crate datetime;
 #
@@ -552,21 +495,8 @@ from the previous chapter, and make it generic over the error type:
 pub mod traits {
     use cgp::prelude::*;
 
-    #[cgp_component {
-        name: TimeTypeComponent,
-        provider: ProvideTimeType,
-    }]
-    pub trait HasTimeType {
-        type Time;
-    }
-
-    #[cgp_component {
-        name: AuthTokenTypeComponent,
-        provider: ProvideAuthTokenType,
-    }]
-    pub trait HasAuthTokenType {
-        type AuthToken;
-    }
+    cgp_type!( Time );
+    cgp_type!( AuthToken );
 
     #[cgp_component {
         provider: AuthTokenValidator,
@@ -643,30 +573,6 @@ pub mod impls {
             Ok(LocalDateTime::now())
         }
     }
-
-    pub struct UseStringAuthToken;
-
-    impl<Context> ProvideAuthTokenType<Context> for UseStringAuthToken {
-        type AuthToken = String;
-    }
-
-    pub struct UseAnyhowError;
-
-    impl<Context> ProvideErrorType<Context> for UseAnyhowError {
-        type Error = anyhow::Error;
-    }
-
-    pub struct DebugAsAnyhow;
-
-    impl<Context, SourceError> ErrorRaiser<Context, SourceError> for DebugAsAnyhow
-    where
-        Context: HasErrorType<Error = anyhow::Error>,
-        SourceError: Debug,
-    {
-        fn raise_error(e: SourceError) -> anyhow::Error {
-            anyhow!("{e:?}")
-        }
-    }
 }
 
 pub mod contexts {
@@ -675,6 +581,7 @@ pub mod contexts {
     use anyhow::anyhow;
     use cgp::core::error::{ErrorRaiserComponent, ErrorTypeComponent};
     use cgp::prelude::*;
+    use cgp_error_anyhow::{UseAnyhowError, DebugAnyhowError};
     use datetime::LocalDateTime;
 
     use super::impls::*;
@@ -693,12 +600,12 @@ pub mod contexts {
     delegate_components! {
         MockAppComponents {
             ErrorTypeComponent: UseAnyhowError,
-            ErrorRaiserComponent: DebugAsAnyhow,
+            ErrorRaiserComponent: DebugAnyhowError,
             [
                 TimeTypeComponent,
                 CurrentTimeGetterComponent,
             ]: UseLocalDateTime,
-            AuthTokenTypeComponent: UseStringAuthToken,
+            AuthTokenTypeComponent: UseType<String>,
             AuthTokenValidatorComponent: ValidateTokenIsNotExpired,
         }
     }
@@ -730,7 +637,7 @@ only implementing `Debug`.
 We also define the provider `UseAnyhowError`, which implements `ProvideErrorType`
 by setting `Error` to `anyhow::Error`.
 Inside the component wiring for `MockAppComponents`, we wire up `ErrorTypeComponent`
-with `UseAnyhowError`, and `ErrorRaiserComponent` with `DebugAsAnyhow`.
+with `UseAnyhowError`, and `ErrorRaiserComponent` with `DebugAnyhowError`.
 Inside the context-specific implementation `AuthTokenExpiryFetcher<MockApp>`,
 we can use `anyhow::Error` directly, since Rust already knows that the type of
 `MockApp::Error` is `anyhow::Error`.
