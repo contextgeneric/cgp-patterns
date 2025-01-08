@@ -177,13 +177,7 @@ The `#[cgp_auto_getter]` attribute can also be applied to accessor traits that d
 #
 # use cgp::prelude::*;
 #
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
-# pub trait HasAuthTokenType {
-#     type AuthToken;
-# }
+# cgp_type!( AuthToken );
 #
 #[cgp_auto_getter]
 pub trait HasApiClientFields: HasAuthTokenType {
@@ -467,6 +461,27 @@ But to get the same result as using `#[cgp_auto_getter]`, the only additional st
 is to delegate the getter component to `UseFields` inside `delegate_components`.
 
 The main flexibility that we get from using `#[cgp_getter]` is that it is now possible to define custom accessor providers that have different ways to read the fields from the context, as we will see in the next section.
+
+Similar to `#[cgp_auto_getter]`, we can also use `#[cgp_getter]` with accessor traits that contain multiple accessor methods. So in case if we need to use custom accessor providers at a later time, it is straightforward to upgrade a trait like `HasApiClientFields` to use `#[cgp_getter]`:
+
+```rust
+# extern crate cgp;
+#
+# use core::marker::PhantomData;
+#
+# use cgp::prelude::*;
+#
+# cgp_type!( AuthToken );
+#
+#[cgp_getter {
+    provider: ApiClientFieldsGetter,
+}]
+pub trait HasApiClientFields: HasAuthTokenType {
+    fn api_base_url(&self) -> &String;
+
+    fn auth_token(&self) -> &Self::AuthToken;
+}
+```
 
 ## Static Accessors
 
