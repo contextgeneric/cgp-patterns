@@ -1,42 +1,16 @@
 # Error Handling
 
-Rust provides a relatively new way of handling errors, with the use of `Result` type
-to represent explicit errors. Compared to the practice of implicit exceptions in other
-mainstream languages, the explicit `Result` type provides many advantages, such as
-making it clear when and what kind of errors can occur when calling a function.
-However, until now there is not yet a clear consensus of which _error type_ should
-be used within a `Result`.
+Rust introduces a modern approach to error handling through the use of the `Result` type, which explicitly represents errors. Unlike implicit exceptions commonly used in other mainstream languages, the `Result` type offers several advantages. It clearly indicates when errors may occur and specifies the type of errors that might be encountered when calling a function. However, the Rust community has yet to reach a consensus on the ideal _error type_ to use within a `Result`.
 
-The reason why choosing an error type is complicated is often due to different
-applications having different concerns: Should the error capture stack traces?
-Can the error be used in no_std environment? How should the error message be
-displayed? Should the error contain _structured metadata_ that can be introspected
-or logged differently? How should one differentiate different errors to decide
-whether to retry an operation? How to compose or _flatten_ error sources that
-come from using different libraries? etc.
+Choosing an appropriate error type is challenging because different applications have distinct requirements. For instance, should the error include stack traces? Can it be compatible with no_std environments? How should the error message be presented? Should it include _structured metadata_ for introspection or specialized logging? How can different errors be distinguished to determine whether an operation should be retried? How can error sources from various libraries be composed or _flattened_ effectively? These and other concerns complicate the decision-making process.
 
-Due to the complex cross-cutting concerns, there are never-ending discussions
-across the Rust communities on the quest to find a perfect error type that
-can be used to solve _all_ error handling problems. At the moment, the
-Rust ecosystem leans toward using error libraries such as
-[`anyhow`](https://docs.rs/anyhow) to store error values using some
-form of _dynamic typing_. However, these approaches give up some of the
-advantages provided by static types, such as the ability to statically
-know whether a function would never raise certain errors.
+Because of these cross-cutting concerns, discussions in the Rust community about finding a universally optimal error type are never ending. Currently, the ecosystem tends to favor libraries like [`anyhow`](https://docs.rs/anyhow) that store error values using some form of _dynamic typing_. While convenient, these approaches sacrifice some benefits of static typing, such as the ability to determine at compile time whether a function cannot produce certain errors.
 
-CGP offers us an alternative approach towards error handling, which is
-to use _abstract_ error types in `Result`, together with a context-generic
-way of _raising errors_ without access to the concrete type.
-In this chapter, we will walk through this new approach of error handling,
-and look at how it allows error handling to be easily customized depending
-on the exact needs of an application.
+CGP offers an alternative approach to error handling: using _abstract_ error types within `Result` alongside a context-generic mechanism for _raising errors_ without requiring a specific error type. In this chapter, we will explore this new approach, demonstrating how it allows error handling to be tailored to an application's precise needs.
 
 ## Abstract Error Type
 
-In the previous chapter, we have learned about how to use associated types
-together with CGP to define abstract types.
-Similar to the abstract `Time` and `AuthToken` types, we can define an abstract
-`Error` type as follows:
+In the previous chapter, we explored how to use associated types with CGP to define abstract types. Similarly to abstract types like `Time` and `AuthToken`, we can define an abstract `Error` type as follows:
 
 ```rust
 # extern crate cgp;
@@ -48,19 +22,11 @@ use cgp::prelude::*;
 cgp_type!( Error: Debug );
 ```
 
-The trait `HasErrorType` is quite special, in the sense that it serves as a standard
-type API for _all_ CGP components that make use of some form of abstract errors.
-Because of this, it has a pretty minimal definition, having an associated type
-`Error` with a default `Debug` constraint. We chose to require the `Debug` constraint
-for abstract errors, because many Rust APIs such as `Result::unwrap` already
-expect error types to implement `Debug`.
+The `HasErrorType` trait is particularly significant because it serves as a standard type API for _all_ CGP components that involve abstract errors. Its definition is intentionally minimal, consisting of a single associated type, `Error`, constrained by `Debug` by default. This `Debug` constraint was chosen because many Rust APIs, such as `Result::unwrap`, rely on error types implementing `Debug`.
 
-The use for `HasErrorType` is so common, that it is included as part of the `cgp` crate,
-and is included in the prelude. So moving forward, we will import the `HasErrorType` trait
-from `cgp`, instead of defining it locally.
+Given its ubiquity, the `HasErrorType` trait is included as part of the `cgp` crate and is available in the prelude. Therefore, we will use the version provided by `cgp` rather than redefining it locally in subsequent examples.
 
-Continuing from the example in the previous chapter, we can update authentication components
-to use the abstract error type provided by `HasErrorType`:
+Building on the example from the previous chapter, we can update authentication components to leverage the abstract error type defined by `HasErrorType`:
 
 ```rust
 # extern crate cgp;
@@ -95,20 +61,13 @@ pub trait HasCurrentTime: HasTimeType + HasErrorType {
 }
 ```
 
-Each of the traits now include `HasErrorType` as a supertrait, and the methods now
-return `Self::Error` instead of `anyhow::Error` in the returned `Result`.
+In these examples, each trait now includes `HasErrorType` as a supertrait, and methods return `Self::Error` in the `Result` type instead of relying on a concrete type like `anyhow::Error`. This abstraction allows greater flexibility and customization, enabling components to adapt their error handling to the specific needs of different contexts.
 
 ## Raising Errors With `From`
 
-Now that we have made use of abstract errors over concrete errors in our component interfaces,
-a challenge that arise next is how can we raise abstract errors inside our context-generic
-providers.
-With CGP, we can make use of impl-side dependencies as usual, and include additional constraints
-on the `Error` type, such as requiring it to implement `From` to convert a source error into
-an abstract error value.
+After adopting abstract errors in our component interfaces, the next challenge is handling these abstract errors in context-generic providers. With CGP, this is achieved by leveraging impl-side dependencies and adding constraints to the `Error` type, such as requiring it to implement `From`. This allows for the conversion of a source error into an abstract error value.
 
-Using this technique, we can re-write `ValidateTokenIsNotExpired` to convert a source error
-`&'static str` into `Context::Error`, when an auth token has expired:
+For example, we can modify the `ValidateTokenIsNotExpired` provider to convert a source error, `&'static str`, into `Context::Error` when an authentication token has expired:
 
 ```rust
 # extern crate cgp;
@@ -167,18 +126,9 @@ where
 }
 ```
 
-As we can see from the example, CGP makes it easy to make use of "stringy" error handling
-inside context-generic providers, by offloading the task of converting from strings to the
-actual error value to the concrete application.
-Although the use of strings as error is not exactly a good practice, it can be very helpful
-during rapid prototyping phase, when we don't yet care about how exactly we want to handle
-various errors.
+This example demonstrates how CGP simplifies "stringy" error handling in context-generic providers by delegating the conversion from strings to concrete error values to the application. While using string errors is generally not a best practice, it is useful during the prototyping phase when precise error handling strategies are not yet established.
 
-With CGP, we want to enable an iterative approach, where developers can make the choise to
-use stringly errors in the early stage, and then gradually transition toward more structured
-error handling at later stages of development.
-For example, at a later time, we could replace the string error with a custom
-`ErrAuthTokenHasExpired` as follows:
+CGP encourages an iterative approach to error handling. Developers can begin with string errors for rapid prototyping and transition to structured error handling as the application matures. For example, we can replace the string error with a custom error type like `ErrAuthTokenHasExpired`:
 
 ```rust
 # extern crate cgp;
@@ -248,42 +198,17 @@ impl Display for ErrAuthTokenHasExpired {
 }
 ```
 
-Compared to before, we defined an `ErrAuthTokenHasExpired` type to represent the
-error that happens when an auth token has expired.
-Inside `AuthTokenValidator`, we now require `Context::Error` to implement `From<ErrAuthTokenHasExpired>`
-to convert an expired token error into the abstract error.
-The type `ErrAuthTokenHasExpired` implements both `Debug` and `Display`, so that the application
-may use them when converting into `Context::Error`.
+In this example, we introduced the `ErrAuthTokenHasExpired` type to represent the specific error of an expired authentication token. The `AuthTokenValidator` implementation requires `Context::Error` to implement `From<ErrAuthTokenHasExpired>` for conversion to the abstract error type. Additionally, `ErrAuthTokenHasExpired` implements both `Debug` and `Display`, allowing applications to present and log the error meaningfully.
 
-CGP makes it easy to define provider-specific error types such as `ErrAuthTokenHasExpired`,
-without requiring the provider to worry about how to embed that error within the application
-error as a whole.
-With impl-side dependencies, an extra constraint like `Context::Error: From<ErrAuthTokenHasExpired>`
-would only be applicable if the application choose to use the specific provider.
-This also means that if an application chose a provider other than `ValidateTokenIsNotExpired`
-to implement `AuthTokenValidator`, then it would not need to handle the error `ErrAuthTokenHasExpired`.
+CGP facilitates defining provider-specific error types like `ErrAuthTokenHasExpired` without burdening the provider with embedding these errors into the application's overall error handling strategy. With impl-side dependencies, constraints like `Context::Error: From<ErrAuthTokenHasExpired>` apply only when the application uses a specific provider. If an application employs a different provider to implement `AuthTokenValidator`, it does not need to handle the `ErrAuthTokenHasExpired` error.
 
 ## Raising Errors using `CanRaiseError`
 
-In the previous section, we used the `From` constraint in the provider implementation of
-`ValidateTokenIsNotExpired` to raise either `&'static str` or `ErrAuthTokenHasExpired`.
-Although this approach looks elegant, we would quickly realized that this approach
-would _not_ work with popular error types such as `anyhow::Error`.
-This is because `anyhow::Error` only provide a blanket `From` instance for types
-that `core::error::Error + Send + Sync + 'static`.
+In the previous section, we used the `From` constraint in the `ValidateTokenIsNotExpired` provider to raise errors such as `&'static str` or `ErrAuthTokenHasExpired`. While this approach is elegant, we quickly realize it doesn't work with common error types like `anyhow::Error`. This is because `anyhow::Error` only provides a blanket From implementation only for types that implement `core::error::Error + Send + Sync + 'static`.
 
-This restriction is a common pain point when using error libraries like `anyhow`.
-But the restriction is there because without CGP, a type like `anyhow::Error`
-cannot provide other blanket implementations for `From` as it would cause overlap.
-The use of `From` also causes leaky abstraction, as custom error types like
-`ErrAuthTokenHasExpired` are forced to anticipate such use and implement the
-common constraints like `core::error::Error`.
-Furthermore, the ownership rules also make it impossible to support custom `From`
-implementations for non-owned types, such as `String` and `&str`.
+This restriction is a common pain point when using error libraries like `anyhow`. The reason for this limitation is that without CGP, a type like `anyhow::Error` cannot provide multiple blanket `From` implementations without causing conflicts. As a result, using `From` can leak abstractions, forcing custom error types like `ErrAuthTokenHasExpired` to implement common traits like `core::error::Error`. Another challenge is that ownership rules prevent supporting custom `From` implementations for non-owned types like `String` and `&str`.
 
-For these reasons, we don't actually encourage the use of `From` for conversion
-into abstract errors. Instead, with CGP we prefer the use of a more flexible,
-albeit more verbose approach, which is to use the `CanRaiseError` trait:
+To address these issues, we recommend using a more flexible — though slightly more verbose—approach with CGP: the `CanRaiseError` trait, rather than relying on `From` for error conversion. Here's how we define it:
 
 ```rust
 # extern crate cgp;
@@ -298,17 +223,11 @@ pub trait CanRaiseError<SourceError>: HasErrorType {
 }
 ```
 
-The trait `CanRaiseError` contains a _generic parameter_ `SourceError` that represents a
-source error type that we want to embed into the main abstract error,
-`HasErrorType::Error`.
-By having it as a generic parameter, it means that a context can raise multiple
-source error types `SourceError` by converting it into `HasErrorType::Error`.
+The `CanRaiseError` trait has a _generic parameter_ `SourceError`, representing the source error type that will be converted into the abstract error type `HasErrorType::Error`. By making it a generic parameter, this allows a context to raise multiple source error types and convert them into the abstract error.
 
-Since raising errors is essential in almost all CGP code, the `CanRaiseError`
-trait is also included as part of the prelude in `cgp`.
+Since raising errors is common in most CGP code, the `CanRaiseError` trait is included in the CGP prelude, so we don’t need to define it manually.
 
-We can now redefine `ValidateTokenIsNotExpired` to use `CanRaiseError` instead
-of `From` to raise a source error like `&'static str`:
+We can now update the `ValidateTokenIsNotExpired` provider to use `CanRaiseError` instead of `From` for error handling, raising a source error like `&'static str`:
 
 ```rust
 # extern crate cgp;
@@ -366,20 +285,13 @@ where
 }
 ```
 
-In the new implementation, we replace the constraint `Context: HasErrorType` with
-`Context: CanRaiseError<&'static str>`. Since `HasErrorType` is a super trait of
-`CanRaiseError`, we only need to include `CanRaiseError` in the constraint to
-automatically also include the `HasErrorType` constraint.
-We also use the method `Context::raise_error` to raise the string
-`"auth token has expired"` to become `Context::Error`.
+In this updated implementation, we replace the `Context: HasErrorType` constraint with `Context: CanRaiseError<&'static str>`. Since `HasErrorType` is a supertrait of `CanRaiseError`, we only need to include `CanRaiseError` in the constraint to automatically include `HasErrorType`. We also use the `Context::raise_error` method to convert the string `"auth token has expired"` into `Context::Error`.
+
+This approach avoids the limitations of `From` and offers greater flexibility for error handling in CGP, especially when working with third-party error types like `anyhow::Error`.
 
 ## Context-Generic Error Raisers
 
-By defining our own `CanRaiseError` trait using CGP, we get to overcome the various
-limitations of `From`, and implement context-generic error raisers that are generic
-over the source error.
-For example, we can implement a context-generic error raiser for `anyhow::Error`
-as follows:
+By defining the `CanRaiseError` trait using CGP, we overcome the limitations of `From` and enable context-generic error raisers that work across various source error types. For instance, we can create a context-generic error raiser for `anyhow::Error` as follows:
 
 ```rust
 # extern crate cgp;
@@ -400,22 +312,9 @@ where
 }
 ```
 
-We define a provider `RaiseAnyhowError`, which implements the provider trait
-`ErrorRaiser` with a generic context `Context` and a generic source error `SourceError`.
-Using impl-side dependencies, we also include an additional constraint that
-the implementation is only valid if `Context` implements `HasErrorType`,
-_and_ if `Context::Error` is `anyhow::Error`.
-We also require a constraint for the source error `SourceError` to implement
-`core::error::Error + Send + Sync + 'static`, which is required to use
-the `From` instance of `anyhow::Error`.
-Inside the method signature, we can replace the return value from `Context::Error`
-to `anyhow::Error`, since we already required the two types to be equal.
-Inside the method body, we simply call `e.into()` to convert the source
-error `SourceError` using `anyhow::Error::From`, since the constraint for using
-it is already satisfied.
+Here, `RaiseAnyhowError` is a provider that implements the `ErrorRaiser` trait with generic `Context` and `SourceError`. The implementation is valid only if the `Context` implements `HasErrorType` and implements `Context::Error` as `anyhow::Error`. Additionally, the `SourceError` must satisfy `core::error::Error + Send + Sync + 'static`, which is necessary for the `From` implementation provided by `anyhow::Error`. Inside the method body, the source error is converted into `anyhow::Error` using `e.into()` since the required constraints are already satisfied.
 
-In fact, if our purpose is to use `From` to convert the errors, we can implement
-a generalized provider that work with any instance of `From` as follows:
+For a more generalized approach, we can create a provider that works with _any_ error type supporting `From`:
 
 ```rust
 # extern crate cgp;
@@ -435,19 +334,9 @@ where
 }
 ```
 
-The `RaiseFrom` provider can work with any `Context` that implements `HasErrorType`,
-without further qualification of what the concrete type for `Context::Error` should be.
-The only additional requirement is that `Context::Error` needs to implement `From<SourceError>`.
-With that constraint in place, we can once again raise errors from any source error `SourceError`
-to `Context::Error`, without coupling it explicitly in providers like
-`ValidateTokenIsNotExpired`.
+This implementation requires the `Context` to implement `HasErrorType` and the `Context::Error` type to implement `From<SourceError>`. With these constraints in place, this provider allows errors to be raised from any source type to `Context::Error` using `From`, without requiring explicit coupling in providers like `ValidateTokenIsNotExpired`.
 
-It may seems redundant that we introduce the indirection of `CanRaiseError`, just to
-use back `From` to convert errors in the end. But the main purpose for this redirection
-is so that we can use something other than `From` to convert errors.
-For example, we can define a context-generic provider for `anyhow::Error` that
-raise errors using `Debug` instead of `From`:
-
+The introduction of `CanRaiseError` might seem redundant when it ultimately relies on `From` in some cases. However, the purpose of this indirection is to enable _alternative_ mechanisms for converting errors when `From` is insufficient or unavailable. For example, we can define an error raiser for `anyhow::Error` that uses the `Debug` trait instead of `From`:
 
 ```rust
 # extern crate cgp;
@@ -471,22 +360,15 @@ where
 }
 ```
 
-The provider `DebugAnyhowError` can raise any source error `SourceError` into `anyhow::Error`,
-given that `SourceError` implements `Debug`. To implement the `raise_error` method, we
-simply use the `anyhow!` macro, and format the source error using `Debug`.
-
-With a context-generic error raiser like `DebugAnyhowError`, a concrete context
-can now use a provider like `ValidateTokenIsNotExpired`, which can use
-`DebugAnyhowError` to raise source errors that only implement `Debug`, such as
-`&'static str` and `ErrAuthTokenHasExpired`.
+In this implementation, the `DebugAnyhowError` provider raises any source error into an `anyhow::Error`, as long as the source error implements `Debug`. The `raise_error` method uses the `anyhow!` macro and formats the source error using the `Debug` trait. This approach allows a concrete context to use providers like `ValidateTokenIsNotExpired` while relying on `DebugAnyhowError` to raise source errors such as `&'static str` or `ErrAuthTokenHasExpired`, which only implement `Debug` or `Display`.
 
 ## The `cgp-error-anyhow` Crate
 
-The CGP project offers the [`cgp-error-anyhow`](https://docs.rs/cgp-error-anyhow) crate, which includes the anyhow-specific providers that we have discussed in this chapter. The constructs are not included as part of the core `cgp` crate, as we don't want to include `anyhow` as part of the crate dependencies.
+The CGP project provides the [`cgp-error-anyhow`](https://docs.rs/cgp-error-anyhow) crate, which includes the anyhow-specific providers discussed in this chapter. These constructs are offered as a separate crate rather than being part of the core `cgp` crate to avoid adding `anyhow` as a mandatory dependency.
 
-Similarly, there are other CGP error crates that use other error libraries as the error type. The [`cgp-error-eyre`](https://docs.rs/cgp-error-eyre) crate can work with `eyre::Error`, and the [`cgp-error-std`](https://docs.rs/cgp-error-std) crate can work with `Box<dyn core::error::Error>`.
+In addition, CGP offers other error crates tailored to different error handling libraries. The [`cgp-error-eyre`](https://docs.rs/cgp-error-eyre) crate supports `eyre::Error`, while the [`cgp-error-std`](https://docs.rs/cgp-error-std) crate works with `Box<dyn core::error::Error>`.
 
-As we can see in this chapter, CGP makes it very easy for entire projects to switch between error handling implementations, without being tightly coupled with a specific error type. Supposed that we want to run the application in a resource-constrained environment, we can swap the use of `cgp-error-anyhow` with `cgp-error-std` inside the component wiring, then the application would now make use of the simpler `Box<dyn Error>` type to handle errors.
+As demonstrated in this chapter, CGP allows projects to easily switch between error handling implementations without being tightly coupled to a specific error type. For instance, if the application needs to run in a resource-constrained environment, replacing `cgp-error-anyhow` with `cgp-error-std` in the component wiring enables the application to use the simpler `Box<dyn Error>` type for error handling.
 
 ## Putting It Altogether
 
@@ -639,31 +521,12 @@ pub mod contexts {
 # }
 ```
 
-In the new code, we refactored `ValidateTokenIsNotExpired` to make use of
-`CanRaiseError<ErrAuthTokenHasExpired>`, with `ErrAuthTokenHasExpired`
-only implementing `Debug`.
-We also define the provider `UseAnyhowError`, which implements `ProvideErrorType`
-by setting `Error` to `anyhow::Error`.
-Inside the component wiring for `MockAppComponents`, we wire up `ErrorTypeComponent`
-with `UseAnyhowError`, and `ErrorRaiserComponent` with `DebugAnyhowError`.
-Inside the context-specific implementation `AuthTokenExpiryFetcher<MockApp>`,
-we can use `anyhow::Error` directly, since Rust already knows that the type of
-`MockApp::Error` is `anyhow::Error`.
+In the updated code, we refactored `ValidateTokenIsNotExpired` to use `CanRaiseError<ErrAuthTokenHasExpired>`, with `ErrAuthTokenHasExpired` implementing only `Debug`. Additionally, we use the provider `UseAnyhowError` from `cgp-error-anyhow`, which implements `ProvideErrorType` by setting `Error` to `anyhow::Error`.
+
+In the component wiring for `MockAppComponents`, we wire up `ErrorTypeComponent` with `UseAnyhowError` and `ErrorRaiserComponent` with `DebugAnyhowError`. In the context-specific implementation `AuthTokenExpiryFetcher<MockApp>`, we can now use `anyhow::Error` directly, since Rust already knows that `MockApp::Error` is the same type as `anyhow::Error`.
 
 ## Conclusion
 
-In this chapter, we have gone through a high level overview of how the approach
-for error handling in CGP is very different from how error handling is typically
-done in Rust. By making use of abstract error types with `HasErrorType`, we are
-able to implement providers that are generic over the concerete error type
-used by an application. By raising error sources using `CanRaiseError`, we can
-implement context-generic error raisers that workaround the limitations of
-non-overlapping impls, and work with source errors that only implement traits
-like `Debug`.
+In this chapter, we provided a high-level overview of how error handling in CGP differs significantly from traditional error handling done in Rust. By utilizing abstract error types with `HasErrorType`, we can create providers that are generic over the concrete error type used by an application. The `CanRaiseError` trait allows us to implement context-generic error raisers, overcoming the limitations of non-overlapping implementations and enabling us to work with source errors that only implement traits like `Debug`.
 
-Nevertheless, error handling is a complex topic of its own, and the CGP abstractions
-like `HasErrorType` and `CanRaiseError` can only serve as the foundation to tackle
-this complex problem.
-There are a few more details related to error handling, which we will cover
-in the next chapters, before we can be ready to handle errors in real world
-applications.
+However, error handling is a complex subject, and CGP abstractions such as `HasErrorType` and `CanRaiseError` are just the foundation for addressing this complexity. There are additional details related to error handling that we will explore in the upcoming chapters, preparing us to handle errors effectively in real-world applications.
