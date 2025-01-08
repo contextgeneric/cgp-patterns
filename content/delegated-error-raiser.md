@@ -1,22 +1,14 @@
 # Delegated Error Raisers
 
-In the previous chapter, we have defined context-generic error raisers like `RaiseFrom`
-and `DebugAsAnyhow`, which can be use to raise any source error that satisfy certain
-constraints.
-However, in the main wiring for `MockAppComponents`, we could only choose a specific
-provider for `ErrorRaiserComponent`.
-But with complex applications, we may want to raise different source errors differently,
-depending on what the source error is.
-For example, we may want to use `RaiseFrom` when there is a `From` instance, and
-`DebugAsAnyhow` for the remaining cases when the source error implements `Debug`.
+In the previous chapter, we defined context-generic error raisers such as `RaiseFrom` and `DebugAnyhowError`, which can be used to raise any source error that satisfies certain constraints. However, in the main wiring for `MockAppComponents`, we could only select a specific provider for the `ErrorRaiserComponent`.
 
-In this chapter, we will cover the `UseDelegate` pattern, which offers a declarative
-way to handle errors differently depending on the source error type.
+In more complex applications, we might want to handle different source errors in different ways, depending on the type of the source error. For example, we might use `RaiseFrom` when a `From` instance is available, and default to `DebugAnyhowError` for cases where the source error implements `Debug`.
+
+In this chapter, we will introduce the _`UseDelegate`_ pattern, which provides a declarative approach to handle errors differently based on the source error type.
 
 ## Ad Hoc Error Raisers
 
-One way that we can handle source errors differently is by defining an error raiser
-provider that has explicit implementation for each source error, such as follows:
+One way to handle source errors differently is by defining an error raiser provider with explicit implementations for each source error. For example:
 
 ```rust
 # extern crate cgp;
@@ -98,37 +90,15 @@ where
 }
 ```
 
-In the above example, we define a provider `MyErrorRaiser` that have explicit
-`ErrorRaiser` implementation for a limited list of source error types, with
-the assumption that the abstract `Context::Error` is instantiated to
-`anyhow::Error`.
+In this example, we define the provider `MyErrorRaiser` with explicit `ErrorRaiser` implementations for a set of source error types, assuming that the abstract `Context::Error` is `anyhow::Error`.
 
-With explicit implementations, `MyErrorRaiser` is able to implement different
-strategy to handle different source error.
-When raising a source error `anyhow::Error`, we simply return `e` as `Context::Error`
-is also `anyhow::Error`.
-When raising `Infallible`, we can unconditionally handle the error by matching with
-empty case.
-When raising `std::io::Error` and `ParseIntError`, we can just use the `From` instance,
-since they satisfy the constraint `core::error::Error + Send + Sync + 'static`.
-When raising `ErrAuthTokenHasExpired`, we format the error using `anyhow!` with
-the `Debug` instance.
-When raising `String` and `&'a str`, we format the error using `anyhow!` with
-the `Display` instance.
+With explicit implementations, `MyErrorRaiser` handles different source errors in various ways. When raising a source error of type `anyhow::Error`, we simply return `e` because `Context::Error` is also `anyhow::Error`. For `Infallible`, we handle the error by matching the empty case. For `std::io::Error` and `ParseIntError`, we rely on the `From` instance, as they satisfy the constraint `core::error::Error + Send + Sync + 'static`. When raising `ErrAuthTokenHasExpired`, we use the `anyhow!` macro to format the error with the `Debug` instance. For `String` and `&'a str`, we use `anyhow!` to format the error with the `Display` instance.
 
-The approach of defining explicit `ErrorRaiser` implementations gives us a lot of
-flexibility, but at the cost of requiring a lot of non-reusable boilerplate.
-Given that we have previously defined various generic error raisers, it would
-be good if there is a way to dispatch the error handling to different error
-raiser, depending on the source error type.
+While defining explicit `ErrorRaiser` implementations provides a high degree of flexibility, it also requires a significant amount of repetitive boilerplate. Since we’ve already defined various generic error raisers, it would be beneficial to find a way to _delegate_ error handling to different error raisers based on the source error type.
 
 ## `UseDelegate` Pattern
 
-If we look closely to the patterns of implementing custom error raisers, we would
-notice that it looks similar to the [provider delegation](./provider-delegation.md)
-pattern that we have went through in the earlier chapter.
-In fact, with a little bit of indirection, we can reuse `DelegateComponent` to
-also delegate the handling of source errors for us:
+When examining the patterns for implementing custom error raisers, we notice similarities to the [provider delegation](./provider-delegation.md) pattern we covered in an earlier chapter. In fact, with a bit of indirection, we can reuse `DelegateComponent` to delegate the handling of source errors:
 
 ```rust
 # extern crate cgp;
@@ -153,25 +123,13 @@ where
 }
 ```
 
-We will walk through the code above slowly to uncover what it entails. First, we define a
-`UseDelegate` struct with a `Components` phantom parameter. The type `UseDelegate` is used
-as a _marker type_ for implementing trait-specific component delegation pattern.
-For this case, we implement `ErrorRaiser` for `UseDelegate`, so that it can be used
-as a context-generic provider for `ErrorRaiser` under specific conditions.
+Let's walk through the code step by step. First, we define the `UseDelegate` struct with a phantom `Components` parameter. `UseDelegate` serves as a _marker_ type for implementing the trait-specific component delegation pattern. Here, we implement `ErrorRaiser` for `UseDelegate`, allowing it to act as a context-generic provider for `ErrorRaiser` under specific conditions.
 
-Inside implementation, we specify that for any context `Context`, source error `SourceError`,
-and error raiser components `Components`, `UseDelegate<Components>` implements
-`ErrorRaiser<Context, SourceError>` if `Components` implements `DelegateComponent<SourceError>`.
-Additionally, the delegate `Components::Delegate` is also expected to implement
-`ErorrRaiser<Context, SourceError>`. Inside the `raise_error` method, we simply delegate the
-implementation to `Components::Delegate::raise_error`.
+Within the implementation, we specify that for any context `Context`, source error `SourceError`, and error raiser provider `Components`, `UseDelegate<Components>` implements `ErrorRaiser<Context, SourceError>` if `Components` implements `DelegateComponent<SourceError>`. Additionally, the delegate `Components::Delegate` must also implement `ErrorRaiser<Context, SourceError>`. Inside the `raise_error` method, we delegate the implementation to `Components::Delegate::raise_error`.
 
-To explain it in simpler terms, `UseDelegate<Components>` implements `ErrorRaiser<Context, SourceError>`
-if there is a delegated provider `ErrorRaiser<Context, SourceError>` that is delegated from `Components`
-via `SourceError`.
+In simpler terms, `UseDelegate<Components>` implements `ErrorRaiser<Context, SourceError>` if there is a delegated provider `ErrorRaiser<Context, SourceError>` from `Components` via `SourceError`.
 
-We could better understand what this entails with a concrete example. Using `UseDelegate`, we can for
-example declaratively dispatch errors such as follows:
+We can better understand this by looking at a concrete example. Using `UseDelegate`, we can declaratively dispatch errors as follows:
 
 ```rust
 # extern crate cgp;
@@ -189,9 +147,9 @@ example declaratively dispatch errors such as follows:
 # #[derive(Debug)]
 # pub struct ErrAuthTokenHasExpired;
 #
-# pub struct DebugAsAnyhow;
+# pub struct DebugAnyhowError;
 #
-# impl<Context, E> ErrorRaiser<Context, E> for DebugAsAnyhow
+# impl<Context, E> ErrorRaiser<Context, E> for DebugAnyhowError
 # where
 #     Context: HasErrorType<Error = anyhow::Error>,
 #     E: Debug,
@@ -225,43 +183,24 @@ delegate_components! {
         [
             ErrAuthTokenHasExpired,
         ]:
-            DebugAsAnyhow,
+            DebugAnyhowError,
     }
 }
 
 pub type MyErrorRaiser = UseDelegate<MyErrorRaiserComponents>;
 ```
 
-We first define a `MyErrorRaiserComponents` type, and use `delegate_components!` on it
-to map the source error type to the error raiser provider we want to use.
-We then redefine `MyErrorRaiser` to be just `UseDelegate<MyErrorRaiserComponents>`.
-With that, we are able to implement `ErrorRaiser` for the source errors
-`std::io::Error`, `ParseIntError`, and `ErrAuthTokenHasExpired`.
+In this example, we first define `MyErrorRaiserComponents` and use `delegate_components!` to map source error types to the error raiser providers we wish to use. Then, we redefine `MyErrorRaiser` to be `UseDelegate<MyErrorRaiserComponents>`. This allows us to implement `ErrorRaiser` for source errors such as `std::io::Error`, `ParseIntError`, and `ErrAuthTokenHasExpired`.
 
-Using the example, we can also trace back the `ErrorRaiser` implementation for `UseDelegate`,
-and see how the handling of a source error like `std::io::Error` is wired.
-First of all, `UseDelegate` implements `ErrorRaiser`, given that
-`MyErrorRaiserComponents` implements `DelegateComponent<std::io::Error>`.
-Following that, we can see that the `Delegate` is `RaiseFrom`, and for the case
-when `Context::Error` is `anyhow::Error`, there is a `From` instance from `std::io::Error`
-to `anyhow::Error`. Therefore, the chain of dependencies are satisfied, and so
-the `ErrorRaiser` is implemented.
+We can also trace the `ErrorRaiser` implementation for `UseDelegate` and see how errors like `std::io::Error` are handled. First, `UseDelegate` implements `ErrorRaiser` because `MyErrorRaiserComponents` implements `DelegateComponent<std::io::Error>`. From there, we observe that the delegate is `RaiseFrom`, and for the case where `Context::Error` is `anyhow::Error`, a `From` instance exists for converting `std::io::Error` into `anyhow::Error`. Thus, the chain of dependencies is satisfied, and `ErrorRaiser` is implemented successfully.
 
-As we can see from above, the CGP constructs `DelegateComponent` and `delegate_components!`
-are not only useful for wiring up CGP providers, but we can also use the same pattern
-for dispatching providers based on the generic parameters of specific traits.
-In fact, we will see the same pattern being used again in many other domains.
+As seen above, the `DelegateComponent` and `delegate_components!` constructs are not only useful for wiring up CGP providers but can also be used to dispatch providers based on the generic parameters of specific traits. In fact, we will see the same pattern applied in other contexts throughout CGP.
 
-For that reason, the `UseDelegate` type is included as part of the `cgp` crate, together
-with the `ErrorRaiser` implementation for it. This is so that readers can quickly identify
-that the delegation is used, every time they see that a trait is implemented for `UseDelegate`.
+For this reason, the `UseDelegate` type is included in the `cgp` crate, along with the `ErrorRaiser` implementation, so that readers can easily identify when delegation is being used every time they encounter a trait implemented for `UseDelegate`.
 
 ## Forwarding Error Raiser
 
-Aside form the delegation pattern, it can also be useful to implement generic error raisers
-that perform some transformation of the source error, and then forward the handling to another
-error raiser. For example, when implementing a generic error raiser that uses `Debug` on
-the source error, we could first format it and then raise it as a string as follows:
+In addition to the delegation pattern, it can be useful to implement generic error raisers that perform a transformation on the source error and then forward the handling to another error raiser. For instance, when implementing a generic error raiser that formats the source error using `Debug`, we could first format it as a string and then forward the handling as follows:
 
 ```rust
 # extern crate cgp;
@@ -282,27 +221,15 @@ where
 }
 ```
 
-In the example above, we define a generic error raiser `DebugError`, which implements
-`ErrorRaiser` for any `SourceError` that implements `Debug`.
-Additionally, we also require that `Context` implements `CanRaiseError<String>`.
-Inside the implementation of `raise_error`, we simply format the source error as
-a string, and then call `Context::raise_error` again on the formatted string.
+In the example above, we define a generic error raiser `DebugError` that implements `ErrorRaiser` for any `SourceError` that implements `Debug`. Additionally, we require that `Context` also implements `CanRaiseError<String>`. Inside the implementation of `raise_error`, we format the source error as a string and then invoke `Context::raise_error` with the formatted string.
 
-A forwarding error raiser like `DebugError` is inteded to be used together with
-`UseDelegate`, so that the `ErrorRaiser` implementation of `String` is expected
-to be handled by a concrete error raiser. Otherwise, an incorrect wiring may
-result in a stack overflow, if `DebugError` ended up calling itself again
-to handle the error raising of `String`.
+A forwarding error raiser like `DebugError` is designed to be used with `UseDelegate`, ensuring that the `ErrorRaiser` implementation for `String` is handled by a separate error raiser. Without this, an incorrect wiring could result in a stack overflow if `DebugError` were to call itself recursively when handling the `String` error.
 
-Nevertheless, the main advantage for this definition is that it is also generic
-over the abstract `Context::Error` type. So when used carefully, we can keep a lot
-of error handling code fully context-generic this way.
+The key advantage of this approach is that it remains generic over the abstract `Context::Error` type. When used correctly, this allows for a large portion of error handling to remain fully context-generic, promoting flexibility and reusability.
 
 ## Full Example
 
-Now that we have learned about how to use `UseDelegate`, we can rewrite the naive
-error raiser that we defined in the beginning of this chapter, and use `delegate_components!`
-to simplify our error handling.
+Now that we have learned how to use `UseDelegate`, we can rewrite the naive error raiser from the beginning of this chapter and use `delegate_components!` to simplify our error handling.
 
 ```rust
 # extern crate cgp;
@@ -372,9 +299,9 @@ pub mod impls {
         type Error = anyhow::Error;
     }
 
-    pub struct DisplayAsAnyhow;
+    pub struct DisplayAnyhowError;
 
-    impl<Context, SourceError> ErrorRaiser<Context, SourceError> for DisplayAsAnyhow
+    impl<Context, SourceError> ErrorRaiser<Context, SourceError> for DisplayAnyhowError
     where
         Context: HasErrorType<Error = anyhow::Error>,
         SourceError: Display,
@@ -429,7 +356,7 @@ pub mod contexts {
                 String,
                 <'a> &'a str,
             ]:
-                DisplayAsAnyhow,
+                DisplayAnyhowError,
         }
     }
 
@@ -449,47 +376,18 @@ pub mod contexts {
 # }
 ```
 
-In the first part of the above example, we define various context-generic error raisers
-that are not only useful for our specific application, but can also be reused later for
-other applications. We have `ReturnError` which returns the source error as is,
-`RaiseFrom` to use `From` to convert the source error, `RaiseInfallible` to unconditionally
-match `Infallible`, and `DebugError` to format and re-raise the error as string.
-We also define `UseAnyhow` to implement `ProvideErrorType`, and `DisplayAsAnyhow`
-to convert any `SourceError` implementing `Display` to `anyhow::Error`.
+In the first part of the example, we define various context-generic error raisers that are useful not only for our specific application but can also be reused later for other applications. We have `ReturnError`, which simply returns the source error as-is, `RaiseFrom` for converting the source error using `From`, `RaiseInfallible` for handling `Infallible` errors, and `DebugError` for formatting and re-raising the error as a string. We also define `UseAnyhow` to implement `ProvideErrorType`, and `DisplayAnyhowError` to convert any `SourceError` implementing `Display` into `anyhow::Error`.
 
-In the second part of the example, we define a dummy context `MyApp` with the only purpose
-is to show how it can handle various source errors. We define `MyErrorRaiserComponents`,
-and use `delegate_components!` to map various source error types to use the error
-raiser provider that we want to designate. We then use `UseDelegate<MyErrorRaiserComponents>`
-as the provider for `ErrorRaiserComponent`. Finally, we define a check trait
-`CanRaiseMyAppErrors`, and verify that the wiring for all error raisers are working correctly.
+In the second part of the example, we define a dummy context, `MyApp`, to illustrate how it can handle various source errors. We define `MyErrorRaiserComponents` and use `delegate_components!` to map various source error types to the corresponding error raiser providers. We then use `UseDelegate<MyErrorRaiserComponents>` as the provider for `ErrorRaiserComponent`. Finally, we define the trait `CanRaiseMyAppErrors` to verify that all the error raisers are wired correctly.
 
 ## Wiring Checks
 
-As we can see from the example, the use of `UseDelegate` with `ErrorRaiser` effectively
-serves as something similar to a top-level error handler for an application.
-The main difference is that this "handling" of error is done entirely at compile-time.
-This allows us to easily customize how exactly we want to handle each source error in
-our application, and not pay for any performance overhead to achieve this level of
-customization.
+As seen in the example, the use of `UseDelegate` with `ErrorRaiser` acts as a form of top-level error handler for an application. The main difference is that the "handling" of errors is done entirely at compile-time, enabling us to customize how each source error is handled without incurring any runtime performance overhead.
 
-One thing to note however, is that the wiring for delegated error raisers is done _lazily_,
-similar to how the wiring is done for CGP providers. As a result, we may incorrectly wire
-a source error type to use an error raiser provider with unsatisfied constraints, and only
-get a compile-time error later on when the error raiser is used in another provider.
+However, it's important to note that the wiring for delegated error raisers is done _lazily_, similar to how CGP provider wiring works. This means that an error could be wired incorrectly, with constraints that are not satisfied, and the issue will only manifest as a compile-time error when the error raiser is used in another provider.
 
-Because of this, having misconfigured wiring of error raisers can be a common source of CGP
-errors, especially for beginners.
-We would encourage readers to revisit the chapter on [debugging techniques](./debugging-techniques.md)
-and use the check traits to ensure that the handling of all source errors are wired correctly.
-It would often helps to use the forked Rust compiler, to show the unsatisfied constraints
-that arise from incomplete error raiser implementations.
+Misconfigured wiring of error raisers can often lead to common CGP errors, especially for beginners. We encourage readers to refer back to the chapter on [debugging techniques](./debugging-techniques.md) and utilize check traits to ensure all source errors are wired correctly. It's also helpful to use a forked Rust compiler to display unsatisfied constraints arising from incomplete error raiser implementations.
 
 ## Conclusion
 
-In this chapter, we have learned about using the `UseDelegate` pattern to declaratively
-handle the error raisers in different ways.
-As we will see in future chapters, the `UseDelegate` can also be applied to many other
-problem domains in CGP.
-The pattern is also essential for us to apply more advanced error handling techniques,
-which we will cover in the next chapter.
+In this chapter, we explored the `UseDelegate` pattern and how it allows us to declaratively handle error raisers in various ways. This pattern simplifies error handling and can be extended to other problem domains within CGP, as we'll see in future chapters. Additionally, the `UseDelegate` pattern serves as a foundation for more advanced error handling techniques, which will be covered in the next chapter.
