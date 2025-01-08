@@ -480,9 +480,17 @@ can now use a provider like `ValidateTokenIsNotExpired`, which can use
 `DebugAnyhowError` to raise source errors that only implement `Debug`, such as
 `&'static str` and `ErrAuthTokenHasExpired`.
 
+## The `cgp-error-anyhow` Crate
+
+The CGP project offers the [`cgp-error-anyhow`](https://docs.rs/cgp-error-anyhow) crate, which includes the anyhow-specific providers that we have discussed in this chapter. The constructs are not included as part of the core `cgp` crate, as we don't want to include `anyhow` as part of the crate dependencies.
+
+Similarly, there are other CGP error crates that use other error libraries as the error type. The [`cgp-error-eyre`](https://docs.rs/cgp-error-eyre) crate can work with `eyre::Error`, and the [`cgp-error-std`](https://docs.rs/cgp-error-std) crate can work with `Box<dyn core::error::Error>`.
+
+As we can see in this chapter, CGP makes it very easy for entire projects to switch between error handling implementations, without being tightly coupled with a specific error type. Supposed that we want to run the application in a resource-constrained environment, we can swap the use of `cgp-error-anyhow` with `cgp-error-std` inside the component wiring, then the application would now make use of the simpler `Box<dyn Error>` type to handle errors.
+
 ## Putting It Altogether
 
-With the use of `HasErrorType` and `CanRaiseError`, we can now refactor the full example
+With the use of `HasErrorType`, `CanRaiseError`, and `cgp-error-anyhow`, we can now refactor the full example
 from the previous chapter, and make it generic over the error type:
 
 ```rust
