@@ -147,13 +147,7 @@ To streamline the creation of auto accessor traits, the `cgp` crate provides the
 #
 # use cgp::prelude::*;
 #
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
-# pub trait HasAuthTokenType {
-#     type AuthToken;
-# }
+# cgp_type!( AuthToken );
 #
 #[cgp_auto_getter]
 pub trait HasApiBaseUrl {
@@ -230,13 +224,7 @@ Similarly, we can implement a context-generic provider for `AuthTokenGetter` as 
 #
 # use cgp::prelude::*;
 #
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
-# pub trait HasAuthTokenType {
-#     type AuthToken;
-# }
+# cgp_type!( AuthToken );
 #
 # #[cgp_component {
 #     provider: AuthTokenGetter,
@@ -529,21 +517,9 @@ With `UseProductionApiUrl`, we can now define a production `ApiClient` context, 
 # use reqwest::StatusCode;
 # use serde::Deserialize;
 #
-# #[cgp_component {
-#     name: MessageIdTypeComponent,
-#     provider: ProvideMessageIdType,
-# }]
-# pub trait HasMessageIdType {
-#     type MessageId;
-# }
-#
-# #[cgp_component {
-#     name: MessageTypeComponent,
-#     provider: ProvideMessageType,
-# }]
-# pub trait HasMessageType {
-#     type Message;
-# }
+# cgp_type!( Message );
+# cgp_type!( MessageId );
+# cgp_type!( AuthToken );
 #
 # #[cgp_component {
 #     provider: MessageQuerier,
@@ -557,14 +533,6 @@ With `UseProductionApiUrl`, we can now define a production `ApiClient` context, 
 # }]
 # pub trait HasApiBaseUrl {
 #     fn api_base_url(&self) -> &String;
-# }
-#
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
-# pub trait HasAuthTokenType {
-#     type AuthToken;
 # }
 #
 # #[cgp_component {
@@ -619,24 +587,6 @@ With `UseProductionApiUrl`, we can now define a production `ApiClient` context, 
 #     }
 # }
 #
-# pub struct UseStringAuthToken;
-#
-# impl<Context> ProvideAuthTokenType<Context> for UseStringAuthToken {
-#     type AuthToken = String;
-# }
-#
-# pub struct UseU64MessageId;
-#
-# impl<Context> ProvideMessageIdType<Context> for UseU64MessageId {
-#     type MessageId = u64;
-# }
-#
-# pub struct UseStringMessage;
-#
-# impl<Context> ProvideMessageType<Context> for UseStringMessage {
-#     type Message = String;
-# }
-#
 # pub struct UseProductionApiUrl;
 #
 # impl<Context> ApiBaseUrlGetter<Context> for UseProductionApiUrl {
@@ -675,9 +625,9 @@ delegate_components! {
     ApiClientComponents {
         ErrorTypeComponent: UseAnyhowError,
         ErrorRaiserComponent: UseDelegate<RaiseApiErrors>,
-        MessageIdTypeComponent: UseU64MessageId,
-        MessageTypeComponent: UseStringMessage,
-        AuthTokenTypeComponent: UseStringAuthToken,
+        MessageIdTypeComponent: UseType<u64>,
+        MessageTypeComponent: UseType<String>,
+        AuthTokenTypeComponent: UseType<String>,
         ApiBaseUrlGetterComponent: UseProductionApiUrl,
         AuthTokenGetterComponent: GetAuthToken,
         MessageQuerierComponent: ReadMessageFromApi,
@@ -717,35 +667,15 @@ Since the `HasField` trait can be automatically derived by contexts, some develo
 # use reqwest::StatusCode;
 # use serde::Deserialize;
 #
-# #[cgp_component {
-#     name: MessageIdTypeComponent,
-#     provider: ProvideMessageIdType,
-# }]
-# pub trait HasMessageIdType {
-#     type MessageId;
-# }
-#
-# #[cgp_component {
-#     name: MessageTypeComponent,
-#     provider: ProvideMessageType,
-# }]
-# pub trait HasMessageType {
-#     type Message;
-# }
+# cgp_type!( Message );
+# cgp_type!( MessageId );
+# cgp_type!( AuthToken );
 #
 # #[cgp_component {
 #     provider: MessageQuerier,
 # }]
 # pub trait CanQueryMessage: HasMessageIdType + HasMessageType + HasErrorType {
 #     fn query_message(&self, message_id: &Self::MessageId) -> Result<Self::Message, Self::Error>;
-# }
-#
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
-# pub trait HasAuthTokenType {
-#     type AuthToken;
 # }
 #
 # pub struct ReadMessageFromApi;
