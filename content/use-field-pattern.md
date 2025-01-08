@@ -1,6 +1,6 @@
 # The `UseField` Pattern
 
-In the previous section, we were able to implement context-generic accessor providers like `GetApiUrl` and `GetAuthToken` without directly referencing the concrete context. However, the field names, such as `api_url` and `auth_token`, were hardcoded into the provider implementation. This means that a concrete context cannot choose different _field names_ for these specific fields unless it manually re-implements the accessors.
+In the previous chapter, we were able to implement context-generic accessor providers like `GetApiUrl` and `UseFields` without directly referencing the concrete context. However, the field names, such as `api_url` and `auth_token`, were hardcoded into the provider implementation. This means that a concrete context cannot choose different _field names_ for these specific fields unless it manually re-implements the accessors.
 
 There are various reasons why a context might want to use different names for the field values. For instance, two independent accessor providers might choose the same field name for different types, or a context might have multiple similar fields with slightly different names. In these cases, it would be beneficial to allow the context to customize the field names instead of having the providers pick fixed field names.
 
@@ -56,11 +56,14 @@ where
 }
 ```
 
-In contrast to the explicit providers `GetApiUrl` and `GetAuthToken`, we now implement the `ApiBaseUrlGetter` and `AuthTokenGetter` traits directly on the `UseField` type provided by the `cgp` crate. The implementation is parameterized by an additional `Tag` type, which represents the field name we want to access.
-
+Compared to `UseFields`, the implementation of `UseField` is parameterized by an additional `Tag` type, which represents the field name we want to access.
 The structure of the implementation is almost the same as before, but instead of using `symbol!` to directly reference the field names, we rely on the `Tag` type to abstract the field names.
 
-By using `UseField`, we can simplify the implementation of `ApiClient` and wire up the accessor components directly within `delegate_components!`:
+## Deriving `UseField` from `#[cgp_getter]`
+
+The implementation of `UseField` on accessor traits can be automatically derived, when we define the trait with `#[cgp_getter]`. However, the implementation would only be derived if the accessor trait contains exactly one accessor method. This is because otherwise, there is no way to determine which accessor method should use the `Tag` type specified in `UseField`.
+
+Using both `#[cgp_getter]` and `UseField`, we can simplify the implementation of `ApiClient` and wire up the accessor components directly within `delegate_components!`:
 
 ```rust
 # extern crate cgp;
@@ -92,20 +95,20 @@ By using `UseField`, we can simplify the implementation of `ApiClient` and wire 
 #     fn query_message(&self, message_id: &Self::MessageId) -> Result<Self::Message, Self::Error>;
 # }
 #
-# #[cgp_component {
-#     provider: ApiBaseUrlGetter,
-# }]
-# pub trait HasApiBaseUrl {
-#     fn api_base_url(&self) -> &String;
-# }
-#
-# #[cgp_component {
-#     provider: AuthTokenGetter,
-# }]
-# pub trait HasAuthToken: HasAuthTokenType {
-#     fn auth_token(&self) -> &Self::AuthToken;
-# }
-#
+#[cgp_getter {
+    provider: ApiBaseUrlGetter,
+}]
+pub trait HasApiBaseUrl {
+    fn api_base_url(&self) -> &String;
+}
+
+#[cgp_getter {
+    provider: AuthTokenGetter,
+}]
+pub trait HasAuthToken: HasAuthTokenType {
+    fn auth_token(&self) -> &Self::AuthToken;
+}
+
 # pub struct ReadMessageFromApi;
 #
 # #[derive(Debug)]
@@ -148,24 +151,6 @@ By using `UseField`, we can simplify the implementation of `ApiClient` and wire 
 #         let message_response: ApiMessageResponse = response.json().map_err(Context::raise_error)?;
 #
 #         Ok(message_response.message)
-#     }
-# }
-#
-# impl<Context, Tag> ApiBaseUrlGetter<Context> for UseField<Tag>
-# where
-#     Context: HasField<Tag, Value = String>,
-# {
-#     fn api_base_url(context: &Context) -> &String {
-#         context.get_field(PhantomData)
-#     }
-# }
-#
-# impl<Context, Tag> AuthTokenGetter<Context> for UseField<Tag>
-# where
-#     Context: HasAuthTokenType + HasField<Tag, Value = Context::AuthToken>,
-# {
-#     fn auth_token(context: &Context) -> &Context::AuthToken {
-#         context.get_field(PhantomData)
 #     }
 # }
 #
