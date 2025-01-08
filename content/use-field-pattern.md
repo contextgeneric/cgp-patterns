@@ -61,9 +61,9 @@ The structure of the implementation is almost the same as before, but instead of
 
 ## Deriving `UseField` from `#[cgp_getter]`
 
-The implementation of `UseField` on accessor traits can be automatically derived, when we define the trait with `#[cgp_getter]`. However, the implementation would only be derived if the accessor trait contains exactly one accessor method. This is because otherwise, there is no way to determine which accessor method should use the `Tag` type specified in `UseField`.
+The implementation of `UseField` on accessor traits can be automatically derived when the trait is defined with `#[cgp_getter]`. However, the derivation will only occur if the accessor trait contains exactly one accessor method. This is because, in cases with multiple methods, there is no clear way to determine which accessor method should utilize the `Tag` type specified in `UseField`.
 
-Using both `#[cgp_getter]` and `UseField`, we can simplify the implementation of `ApiClient` and wire up the accessor components directly within `delegate_components!`:
+By combining `#[cgp_getter]` with `UseField`, we can streamline the implementation of `ApiClient` and directly wire the accessor components within `delegate_components!`:
 
 ```rust
 # extern crate cgp;
