@@ -6,7 +6,7 @@ In summary, a CGP component is consist of the following building blocks:
 - A consumer trait.
 - A provider trait.
 - A component name type.
-- A blanket implementation of the consumer trait using `HasComponents`.
+- A blanket implementation of the consumer trait using `HasProvider`.
 - A blanket implementation of the provider trait using `DelegateComponent`.
 
 Syntactically, all CGP components follow the same pattern. The pattern is
@@ -45,7 +45,7 @@ pub struct ActionPerformerComponent;
 impl<Context, GenericA, GenericB, ...>
     CanPerformAction<GenericA, GenericB, ...> for Context
 where
-    Context: HasComponents + ConstraintA + ConstraintB + ...,
+    Context: HasProvider + ConstraintA + ConstraintB + ...,
     Context::Components: ActionPerformer<Context>,
 {
     fn perform_action(
@@ -109,7 +109,7 @@ pub trait CanPerformAction<GenericA, GenericB, ...>:
 
 To use the macro, the bulk import statement `use cgp::prelude::*` has to
 be used to bring all CGP constructs into scope. This includes the
-`HasComponents` and `DelegateComponent` traits, which are also provided
+`HasProvider` and `DelegateComponent` traits, which are also provided
 by the `cgp` crate.
 
 We then use `cgp_component` as an attribute proc macro, with several
@@ -241,6 +241,7 @@ pub trait CanParseFromString: Sized {
 
 pub struct FormatAsJsonString;
 
+#[cgp_provider(StringFormatterComponent)]
 impl<Context> StringFormatter<Context> for FormatAsJsonString
 where
     Context: Serialize,
@@ -252,6 +253,7 @@ where
 
 pub struct ParseFromJsonString;
 
+#[cgp_provider(StringParserComponent)]
 impl<Context> StringParser<Context> for ParseFromJsonString
 where
     Context: for<'a> Deserialize<'a>,
@@ -271,8 +273,8 @@ pub struct Person {
 
 pub struct PersonComponents;
 
-impl HasComponents for Person {
-    type Components = PersonComponents;
+impl HasProvider for Person {
+    type Provider = PersonComponents;
 }
 
 delegate_components! {

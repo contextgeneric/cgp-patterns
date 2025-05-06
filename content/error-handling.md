@@ -451,7 +451,7 @@ pub mod impls {
 
     pub struct UseLocalDateTime;
 
-    impl<Context> ProvideTimeType<Context> for UseLocalDateTime {
+    impl<Context> TimeTypeProvider<Context> for UseLocalDateTime {
         type Time = LocalDateTime;
     }
 
@@ -483,8 +483,8 @@ pub mod contexts {
 
     pub struct MockAppComponents;
 
-    impl HasComponents for MockApp {
-        type Components = MockAppComponents;
+    impl HasProvider for MockApp {
+        type Provider = MockAppComponents;
     }
 
     delegate_components! {
@@ -492,10 +492,10 @@ pub mod contexts {
             ErrorTypeComponent: UseAnyhowError,
             ErrorRaiserComponent: DebugAnyhowError,
             [
-                TimeTypeComponent,
+                TimeTypeProviderComponent,
                 CurrentTimeGetterComponent,
             ]: UseLocalDateTime,
-            AuthTokenTypeComponent: UseType<String>,
+            AuthTokenTypeProviderComponent: UseType<String>,
             AuthTokenValidatorComponent: ValidateTokenIsNotExpired,
         }
     }

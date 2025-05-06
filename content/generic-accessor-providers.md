@@ -401,8 +401,8 @@ pub struct ApiClient {
 
 pub struct ApiClientComponents;
 
-impl HasComponents for ApiClient {
-    type Components = ApiClientComponents;
+impl HasProvider for ApiClient {
+    type Provider = ApiClientComponents;
 }
 
 delegate_components! {
@@ -411,7 +411,7 @@ delegate_components! {
         ErrorRaiserComponent: UseDelegate<RaiseApiErrors>,
         MessageTypeComponent: UseType<String>,
         MessageIdTypeComponent: UseType<u64>,
-        AuthTokenTypeComponent: UseType<String>,
+        AuthTokenTypeProviderComponent: UseType<String>,
         [
             ApiBaseUrlGetterComponent,
             AuthTokenGetterComponent,
@@ -617,8 +617,8 @@ pub struct ApiClientComponents;
 
 # pub struct RaiseApiErrors;
 #
-impl HasComponents for ApiClient {
-    type Components = ApiClientComponents;
+impl HasProvider for ApiClient {
+    type Provider = ApiClientComponents;
 }
 
 delegate_components! {
@@ -627,7 +627,7 @@ delegate_components! {
         ErrorRaiserComponent: UseDelegate<RaiseApiErrors>,
         MessageIdTypeComponent: UseType<u64>,
         MessageTypeComponent: UseType<String>,
-        AuthTokenTypeComponent: UseType<String>,
+        AuthTokenTypeProviderComponent: UseType<String>,
         ApiBaseUrlGetterComponent: UseProductionApiUrl,
         AuthTokenGetterComponent: GetAuthToken,
         MessageQuerierComponent: ReadMessageFromApi,

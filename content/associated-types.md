@@ -15,23 +15,17 @@ pub mod traits {
     use anyhow::Error;
     use cgp::prelude::*;
 
-    #[cgp_component {
-        provider: AuthTokenValidator,
-    }]
+    #[cgp_component(AuthTokenValidator)]
     pub trait CanValidateAuthToken {
         fn validate_auth_token(&self, auth_token: &str) -> Result<(), Error>;
     }
 
-    #[cgp_component {
-        provider: AuthTokenExpiryFetcher,
-    }]
+    #[cgp_component(AuthTokenExpiryFetcher)]
     pub trait CanFetchAuthTokenExpiry {
         fn fetch_auth_token_expiry(&self, auth_token: &str) -> Result<u64, Error>;
     }
 
-    #[cgp_component {
-        provider: CurrentTimeGetter,
-    }]
+    #[cgp_component(CurrentTimeGetter)]
     pub trait HasCurrentTime {
         fn current_time(&self) -> Result<u64, Error>;
     }
@@ -41,11 +35,11 @@ pub mod impls {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use anyhow::{anyhow, Error};
+    use cgp::prelude::*;
 
     use super::traits::*;
 
-    pub struct ValidateTokenIsNotExpired;
-
+    #[cgp_new_provider]
     impl<Context> AuthTokenValidator<Context> for ValidateTokenIsNotExpired
     where
         Context: HasCurrentTime + CanFetchAuthTokenExpiry,
@@ -63,8 +57,7 @@ pub mod impls {
         }
     }
 
-    pub struct GetSystemTimestamp;
-
+    #[cgp_new_provider]
     impl<Context> CurrentTimeGetter<Context> for GetSystemTimestamp {
         fn current_time(_context: &Context) -> Result<u64, Error> {
             let now = SystemTime::now()
@@ -86,14 +79,9 @@ pub mod contexts {
     use super::impls::*;
     use super::traits::*;
 
+    #[cgp_context]
     pub struct MockApp {
         pub auth_tokens_store: BTreeMap<String, u64>,
-    }
-
-    pub struct MockAppComponents;
-
-    impl HasComponents for MockApp {
-        type Components = MockAppComponents;
     }
 
     delegate_components! {
@@ -103,6 +91,7 @@ pub mod contexts {
         }
     }
 
+    #[cgp_provider]
     impl AuthTokenExpiryFetcher<MockApp> for MockAppComponents {
         fn fetch_auth_token_expiry(
             context: &MockApp,
@@ -116,9 +105,11 @@ pub mod contexts {
         }
     }
 
-    pub trait CanUseMockApp: CanValidateAuthToken {}
-
-    impl CanUseMockApp for MockApp {}
+    check_components! {
+        CanUseMockApp for MockApp {
+            AuthTokenValidatorComponent,
+        }
+    }
 }
 #
 # }
@@ -155,18 +146,12 @@ A more flexible approach is to define an _abstract_ `Time` type that allows us t
 #
 use cgp::prelude::*;
 
-#[cgp_component {
-    name: TimeTypeComponent,
-    provider: ProvideTimeType,
-}]
+#[cgp_component(TimeTypeProviderComponent)]
 pub trait HasTimeType {
     type Time: Eq + Ord;
 }
 
-#[cgp_component {
-    name: AuthTokenTypeComponent,
-    provider: ProvideAuthTokenType,
-}]
+#[cgp_component(AuthTokenTypeProviderComponent)]
 pub trait HasAuthTokenType {
     type AuthToken;
 }
@@ -174,7 +159,7 @@ pub trait HasAuthTokenType {
 
 Here, we define the `HasTimeType` trait with an associated type `Time`, which is constrained to types that implement `Eq` and `Ord` so that they can be compared. Similarly, the `HasAuthTokenType` trait defines an associated type `AuthToken`, without any additional constraints.
 
-Similar to regular trait methods, CGP allows us to auto-derive blanket implementations that delegate the associated types to providers using `HasComponents` and `DelegateComponent`. Therefore, we can use `#[cgp_component]` on traits containing associated types as well.
+Similar to regular trait methods, CGP allows us to auto-derive blanket implementations that delegate the associated types to providers using `HasProvider` and `DelegateComponent`. Therefore, we can use `#[cgp_component]` on traits containing associated types as well.
 
 With these type traits in place, we can now update our authentication components to leverage abstract types within the trait methods:
 
@@ -187,39 +172,27 @@ With these type traits in place, we can now update our authentication components
 # use anyhow::Error;
 # use cgp::prelude::*;
 #
-# #[cgp_component {
-#     name: TimeTypeComponent,
-#     provider: ProvideTimeType,
-# }]
+# #[cgp_component(TimeTypeProviderComponent)]
 # pub trait HasTimeType {
 #     type Time: Eq + Ord;
 # }
 #
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
+# #[cgp_component(AuthTokenTypeProvider)]
 # pub trait HasAuthTokenType {
 #     type AuthToken;
 # }
 #
-#[cgp_component {
-    provider: AuthTokenValidator,
-}]
+#[cgp_component(AuthTokenValidator)]
 pub trait CanValidateAuthToken: HasAuthTokenType {
     fn validate_auth_token(&self, auth_token: &Self::AuthToken) -> Result<(), Error>;
 }
 
-#[cgp_component {
-    provider: AuthTokenExpiryFetcher,
-}]
+#[cgp_component(AuthTokenExpiryFetcher)]
 pub trait CanFetchAuthTokenExpiry: HasAuthTokenType + HasTimeType {
     fn fetch_auth_token_expiry(&self, auth_token: &Self::AuthToken) -> Result<Self::Time, Error>;
 }
 
-#[cgp_component {
-    provider: CurrentTimeGetter,
-}]
+#[cgp_component(CurrentTimeGetter)]
 pub trait HasCurrentTime: HasTimeType {
     fn current_time(&self) -> Result<Self::Time, Error>;
 }
@@ -236,45 +209,32 @@ With the abstract types defined, we can now update `ValidateTokenIsNotExpired` t
 # use anyhow::{anyhow, Error};
 # use cgp::prelude::*;
 #
-# #[cgp_component {
-#     name: TimeTypeComponent,
-#     provider: ProvideTimeType,
-# }]
+# #[cgp_component(TimeTypeProviderComponent)]
 # pub trait HasTimeType {
 #     type Time: Eq + Ord;
 # }
 #
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
+# #[cgp_component(AuthTokenTypeProviderComponent)]
 # pub trait HasAuthTokenType {
 #     type AuthToken;
 # }
 #
-# #[cgp_component {
-#     provider: AuthTokenValidator,
-# }]
+# #[cgp_component(AuthTokenValidator)]
 # pub trait CanValidateAuthToken: HasAuthTokenType {
 #     fn validate_auth_token(&self, auth_token: &Self::AuthToken) -> Result<(), Error>;
 # }
 #
-# #[cgp_component {
-#     provider: AuthTokenExpiryFetcher,
-# }]
+# #[cgp_component(AuthTokenExpiryFetcher)]
 # pub trait CanFetchAuthTokenExpiry: HasAuthTokenType + HasTimeType {
 #     fn fetch_auth_token_expiry(&self, auth_token: &Self::AuthToken) -> Result<Self::Time, Error>;
 # }
 #
-# #[cgp_component {
-#     provider: CurrentTimeGetter,
-# }]
+# #[cgp_component(CurrentTimeGetter)]
 # pub trait HasCurrentTime: HasTimeType {
 #     fn current_time(&self) -> Result<Self::Time, Error>;
 # }
 #
-pub struct ValidateTokenIsNotExpired;
-
+#[cgp_new_provider]
 impl<Context> AuthTokenValidator<Context> for ValidateTokenIsNotExpired
 where
     Context: HasCurrentTime + CanFetchAuthTokenExpiry,
@@ -309,8 +269,15 @@ Here's how you can define the same types with `cgp_type!`:
 #
 use cgp::prelude::*;
 
-cgp_type!( Time: Eq + Ord );
-cgp_type!( AuthToken );
+#[cgp_type]
+pub trait HasTimeType {
+    type Time: Eq + Ord;
+}
+
+#[cgp_type]
+pub trait HasAuthTokenType {
+    type AuthToken;
+}
 ```
 
 The `cgp_type!` macro accepts the name of an abstract type, `$name`, along with any applicable constraints for that type. It then automatically generates the same implementation as the `cgp_component` macro: a consumer trait named `Has{$name}Type`, a provider trait named `Provide{$name}Type`, and a component name type named `${name}TypeComponent`. Each of the generated traits includes an associated type defined as `type $name: $constraints;`.
@@ -327,9 +294,7 @@ At first glance, it might seem overly verbose to define multiple type traits and
 # use cgp::prelude::*;
 # use anyhow::Error;
 #
-#[cgp_component {
-    provider: AppImpl,
-}]
+#[cgp_component(AppImpl)]
 pub trait AppTrait {
     type Time: Eq + Ord;
 
@@ -366,7 +331,10 @@ The minimalism philosophy of CGP extends to the constraints placed on associated
 #
 # use cgp::prelude::*;
 #
-cgp_type!( Time: Eq + Ord );
+#[cgp_type]
+pub trait HasTimeType {
+    type Time: Eq + Ord;
+}
 ```
 
 Here, the associated `Time` type is constrained by `Eq + Ord`. This means that all concrete implementations of `Time` must satisfy these constraints, regardless of whether they are actually required by the providers. In fact, if we revisit our previous examples, we notice that the `Eq` constraint isn’t used anywhere.
@@ -382,33 +350,32 @@ Fortunately, CGP allows us to apply the same principle of impl-side dependencies
 # use anyhow::{anyhow, Error};
 # use cgp::prelude::*;
 #
-cgp_type!( Time );
-
-# cgp_type!( AuthToken );
+#[cgp_type]
+pub trait HasTimeType {
+    type Time: Eq + Ord;
+}
 #
-# #[cgp_component {
-#     provider: AuthTokenValidator,
-# }]
+# #[cgp_type]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
+#
+# #[cgp_component(AuthTokenValidator)]
 # pub trait CanValidateAuthToken: HasAuthTokenType {
 #     fn validate_auth_token(&self, auth_token: &Self::AuthToken) -> Result<(), Error>;
 # }
 #
-# #[cgp_component {
-#     provider: AuthTokenExpiryFetcher,
-# }]
+# #[cgp_component(AuthTokenExpiryFetcher)]
 # pub trait CanFetchAuthTokenExpiry: HasAuthTokenType + HasTimeType {
 #     fn fetch_auth_token_expiry(&self, auth_token: &Self::AuthToken) -> Result<Self::Time, Error>;
 # }
 #
-# #[cgp_component {
-#     provider: CurrentTimeGetter,
-# }]
+# #[cgp_component(CurrentTimeGetter)]
 # pub trait HasCurrentTime: HasTimeType {
 #     fn current_time(&self) -> Result<Self::Time, Error>;
 # }
 #
-pub struct ValidateTokenIsNotExpired;
-
+#[cgp_new_provider]
 impl<Context> AuthTokenValidator<Context> for ValidateTokenIsNotExpired
 where
     Context: HasCurrentTime + CanFetchAuthTokenExpiry,
@@ -452,10 +419,7 @@ With type abstraction in place, we can define context-generic providers for the 
 # use cgp::prelude::*;
 # use anyhow::Error;
 #
-# #[cgp_component {
-#     name: TimeTypeComponent,
-#     provider: ProvideTimeType,
-# }]
+# #[cgp_type]
 # pub trait HasTimeType {
 #     type Time: Eq + Ord;
 # }
@@ -469,10 +433,12 @@ With type abstraction in place, we can define context-generic providers for the 
 #
 pub struct UseInstant;
 
-impl<Context> ProvideTimeType<Context> for UseInstant {
+#[cgp_provider]
+impl<Context> TimeTypeProvider<Context> for UseInstant {
     type Time = Instant;
 }
 
+#[cgp_provider]
 impl<Context> CurrentTimeGetter<Context> for UseInstant
 where
     Context: HasTimeType<Time = Instant>,
@@ -483,9 +449,9 @@ where
 }
 ```
 
-Here, the `UseInstant` provider implements `ProvideTimeType` for any `Context` type by setting the associated type `Time` to `Instant`. Additionally, it implements `CurrentTimeGetter` for any `Context`, _provided_ that `Context::Time` is `Instant`. This type equality constraint works similarly to regular implementation-side dependencies and is frequently used for scope-limited access to a concrete type associated with an abstract type.
+Here, the `UseInstant` provider implements `TimeTypeProvider` for any `Context` type by setting the associated type `Time` to `Instant`. Additionally, it implements `CurrentTimeGetter` for any `Context`, _provided_ that `Context::Time` is `Instant`. This type equality constraint works similarly to regular implementation-side dependencies and is frequently used for scope-limited access to a concrete type associated with an abstract type.
 
-The type equality constraint is necessary because a given context might not always use `UseInstant` as the provider for `ProvideTimeType`. Instead, the context could choose a different provider that uses another type to represent `Time`. Consequently, `UseInstant` can only implement `CurrentTimeGetter` if the `Context` uses it or another provider that also uses `Instant` as its `Time` type.
+The type equality constraint is necessary because a given context might not always use `UseInstant` as the provider for `TimeTypeProvider`. Instead, the context could choose a different provider that uses another type to represent `Time`. Consequently, `UseInstant` can only implement `CurrentTimeGetter` if the `Context` uses it or another provider that also uses `Instant` as its `Time` type.
 
 Aside from `Instant`, we can also define alternative providers for `Time`, using other types like [`datetime::LocalDateTime`](https://docs.rs/datetime/latest/datetime/struct.LocalDateTime.html):
 
@@ -498,27 +464,24 @@ Aside from `Instant`, we can also define alternative providers for `Time`, using
 # use anyhow::Error;
 # use datetime::LocalDateTime;
 #
-# #[cgp_component {
-#     name: TimeTypeComponent,
-#     provider: ProvideTimeType,
-# }]
+# #[cgp_type]
 # pub trait HasTimeType {
 #     type Time: Eq + Ord;
 # }
 #
-# #[cgp_component {
-#     provider: CurrentTimeGetter,
-# }]
+# #[cgp_component(CurrentTimeGetter)]
 # pub trait HasCurrentTime: HasTimeType {
 #     fn current_time(&self) -> Result<Self::Time, Error>;
 # }
 #
 pub struct UseLocalDateTime;
 
-impl<Context> ProvideTimeType<Context> for UseLocalDateTime {
+#[cgp_provider]
+impl<Context> TimeTypeProvider<Context> for UseLocalDateTime {
     type Time = LocalDateTime;
 }
 
+#[cgp_provider]
 impl<Context> CurrentTimeGetter<Context> for UseLocalDateTime
 where
     Context: HasTimeType<Time = LocalDateTime>,
@@ -531,24 +494,20 @@ where
 
 Since our application only requires the `Time` type to implement `Ord` and the ability to retrieve the current time, we can easily swap between different time providers, as long as they meet these dependencies. As the application evolves, additional constraints might be introduced on the Time type, potentially limiting the available concrete time types. However, with CGP, we can incrementally introduce new dependencies based on the application’s needs, avoiding premature restrictions caused by unused requirements.
 
-Similarly, for the abstract `AuthToken` type, we can define a context-generic provider `ProvideAuthTokenType` that uses `String` as its implementation:
+Similarly, for the abstract `AuthToken` type, we can define a context-generic provider `AuthTokenTypeProvider` that uses `String` as its implementation:
 
 ```rust
 # extern crate cgp;
 #
 # use cgp::prelude::*;
 #
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
+# #[cgp_type]
 # pub trait HasAuthTokenType {
 #     type AuthToken;
 # }
 #
-pub struct UseStringAuthToken;
-
-impl<Context> ProvideAuthTokenType<Context> for UseStringAuthToken {
+#[cgp_new_provider]
+impl<Context> AuthTokenTypeProvider<Context> for UseStringAuthToken {
     type AuthToken = String;
 }
 ```
@@ -561,7 +520,7 @@ Throughout this book, we will primarily use plain types to implement abstract ty
 
 ## The `UseType` Pattern
 
-Implementing type providers can quickly become repetitive as the number of abstract types grows. For example, to use `String` as the `AuthToken` type, we first need to define a new struct, `UseStringAuthToken`, and then implement `ProvideAuthTokenType` for it. To streamline this process, the `cgp_type!` macro simplifies the implementation by automatically generating a provider using the _`UseType`_ pattern. The generated implementation looks like this:
+Implementing type providers can quickly become repetitive as the number of abstract types grows. For example, to use `String` as the `AuthToken` type, we first need to define a new struct, `UseStringAuthToken`, and then implement `AuthTokenTypeProvider` for it. To streamline this process, the `cgp_type!` macro simplifies the implementation by automatically generating a provider using the _`UseType`_ pattern. The generated implementation looks like this:
 
 ```rust
 # extern crate cgp;
@@ -570,22 +529,20 @@ Implementing type providers can quickly become repetitive as the number of abstr
 #
 # use cgp::prelude::*;
 #
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
+# #[cgp_component(AuthTokenTypeProvider)]
 # pub trait HasAuthTokenType {
 #     type AuthToken;
 # }
 #
 pub struct UseType<Type>(pub PhantomData<Type>);
 
-impl<Context, AuthToken> ProvideAuthTokenType<Context> for UseType<AuthToken> {
+#[cgp_provider]
+impl<Context, AuthToken> AuthTokenTypeProvider<Context> for UseType<AuthToken> {
     type AuthToken = AuthToken;
 }
 ```
 
-Here, `UseType` is a _marker_ type with a generic parameter `Type`, representing the type to be used for a given type trait. Since `PhantomData` is its only field, `UseType` is never intended to be used as a runtime value. The generic implementation of `ProvideAuthTokenType` for `UseType` ensures that the AuthToken type is directly set to the `Type` parameter of `UseType`.
+Here, `UseType` is a _marker_ type with a generic parameter `Type`, representing the type to be used for a given type trait. Since `PhantomData` is its only field, `UseType` is never intended to be used as a runtime value. The generic implementation of `AuthTokenTypeProvider` for `UseType` ensures that the AuthToken type is directly set to the `Type` parameter of `UseType`.
 
 With this generic implementation, we can redefine `UseStringAuthToken` as a simple type alias for `UseType<String>`:
 
@@ -615,19 +572,22 @@ pub mod traits {
     use anyhow::Error;
     use cgp::prelude::*;
 
-    cgp_type!( Time );
-    cgp_type!( AuthToken );
+    #[cgp_type]
+    pub trait HasTimeType {
+        type Time: Eq + Ord;
+    }
 
-    #[cgp_component {
-        provider: AuthTokenValidator,
-    }]
+    #[cgp_type]
+    pub trait HasAuthTokenType {
+        type AuthToken;
+    }
+
+    #[cgp_component(AuthTokenValidator)]
     pub trait CanValidateAuthToken: HasAuthTokenType {
         fn validate_auth_token(&self, auth_token: &Self::AuthToken) -> Result<(), Error>;
     }
 
-    #[cgp_component {
-        provider: AuthTokenExpiryFetcher,
-    }]
+    #[cgp_component(AuthTokenExpiryFetcher)]
     pub trait CanFetchAuthTokenExpiry: HasAuthTokenType + HasTimeType {
         fn fetch_auth_token_expiry(
             &self,
@@ -635,9 +595,7 @@ pub mod traits {
         ) -> Result<Self::Time, Error>;
     }
 
-    #[cgp_component {
-        provider: CurrentTimeGetter,
-    }]
+    #[cgp_component(CurrentTimeGetter)]
     pub trait HasCurrentTime: HasTimeType {
         fn current_time(&self) -> Result<Self::Time, Error>;
     }
@@ -650,8 +608,7 @@ pub mod impls {
 
     use super::traits::*;
 
-    pub struct ValidateTokenIsNotExpired;
-
+    #[cgp_new_provider]
     impl<Context> AuthTokenValidator<Context> for ValidateTokenIsNotExpired
     where
         Context: HasCurrentTime + CanFetchAuthTokenExpiry,
@@ -675,10 +632,12 @@ pub mod impls {
 
     pub struct UseLocalDateTime;
 
-    impl<Context> ProvideTimeType<Context> for UseLocalDateTime {
+    #[cgp_provider]
+    impl<Context> TimeTypeProvider<Context> for UseLocalDateTime {
         type Time = LocalDateTime;
     }
 
+    #[cgp_provider]
     impl<Context> CurrentTimeGetter<Context> for UseLocalDateTime
     where
         Context: HasTimeType<Time = LocalDateTime>,
@@ -699,27 +658,23 @@ pub mod contexts {
     use super::impls::*;
     use super::traits::*;
 
+    #[cgp_context]
     pub struct MockApp {
         pub auth_tokens_store: BTreeMap<String, LocalDateTime>,
-    }
-
-    pub struct MockAppComponents;
-
-    impl HasComponents for MockApp {
-        type Components = MockAppComponents;
     }
 
     delegate_components! {
         MockAppComponents {
             [
-                TimeTypeComponent,
+                TimeTypeProviderComponent,
                 CurrentTimeGetterComponent,
             ]: UseLocalDateTime,
-            AuthTokenTypeComponent: UseType<String>,
+            AuthTokenTypeProviderComponent: UseType<String>,
             AuthTokenValidatorComponent: ValidateTokenIsNotExpired,
         }
     }
 
+    #[cgp_provider]
     impl AuthTokenExpiryFetcher<MockApp> for MockAppComponents {
         fn fetch_auth_token_expiry(
             context: &MockApp,
@@ -733,9 +688,12 @@ pub mod contexts {
         }
     }
 
-    pub trait CanUseMockApp: CanValidateAuthToken {}
 
-    impl CanUseMockApp for MockApp {}
+    check_components! {
+        CanUseMockApp for MockApp {
+            AuthTokenValidatorComponent,
+        }
+    }
 }
 #
 # }

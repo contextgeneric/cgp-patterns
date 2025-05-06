@@ -164,8 +164,8 @@ pub trait HasAuthToken: HasAuthTokenType {
 #
 # pub struct RaiseApiErrors;
 #
-# impl HasComponents for ApiClient {
-#     type Components = ApiClientComponents;
+# impl HasProvider for ApiClient {
+#     type Provider = ApiClientComponents;
 # }
 #
 delegate_components! {
@@ -174,7 +174,7 @@ delegate_components! {
         ErrorRaiserComponent: UseDelegate<RaiseApiErrors>,
         MessageIdTypeComponent: UseType<u64>,
         MessageTypeComponent: UseType<String>,
-        AuthTokenTypeComponent: UseType<String>,
+        AuthTokenTypeProviderComponent: UseType<String>,
         ApiBaseUrlGetterComponent: UseField<symbol!("api_base_url")>,
         AuthTokenGetterComponent: UseField<symbol!("auth_token")>,
         MessageQuerierComponent: ReadMessageFromApi,

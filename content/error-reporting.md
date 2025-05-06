@@ -40,16 +40,16 @@ and then format them as a string before raising it as an error:
 # use cgp::prelude::*;
 #
 # #[cgp_component {
-#     name: TimeTypeComponent,
-#     provider: ProvideTimeType,
+#     name: TimeTypeProviderComponent,
+#     provider: TimeTypeProvider,
 # }]
 # pub trait HasTimeType {
 #     type Time;
 # }
 #
 # #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
+#     name: AuthTokenTypeProviderComponent,
+#     provider: AuthTokenTypeProvider,
 # }]
 # pub trait HasAuthTokenType {
 #     type AuthToken;
@@ -130,16 +130,16 @@ generating a good error report:
 # use cgp::prelude::*;
 #
 # #[cgp_component {
-#     name: TimeTypeComponent,
-#     provider: ProvideTimeType,
+#     name: TimeTypeProviderComponent,
+#     provider: TimeTypeProvider,
 # }]
 # pub trait HasTimeType {
 #     type Time;
 # }
 #
 # #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
+#     name: AuthTokenTypeProviderComponent,
+#     provider: AuthTokenTypeProvider,
 # }]
 # pub trait HasAuthTokenType {
 #     type AuthToken;
@@ -176,16 +176,16 @@ default way to format `ErrAuthTokenHasExpired` as string:
 # use cgp::prelude::*;
 #
 # #[cgp_component {
-#     name: TimeTypeComponent,
-#     provider: ProvideTimeType,
+#     name: TimeTypeProviderComponent,
+#     provider: TimeTypeProvider,
 # }]
 # pub trait HasTimeType {
 #     type Time;
 # }
 #
 # #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
+#     name: AuthTokenTypeProviderComponent,
+#     provider: AuthTokenTypeProvider,
 # }]
 # pub trait HasAuthTokenType {
 #     type AuthToken;
@@ -245,16 +245,16 @@ as follows:
 # use cgp::prelude::*;
 #
 # #[cgp_component {
-#     name: TimeTypeComponent,
-#     provider: ProvideTimeType,
+#     name: TimeTypeProviderComponent,
+#     provider: TimeTypeProvider,
 # }]
 # pub trait HasTimeType {
 #     type Time;
 # }
 #
 # #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
+#     name: AuthTokenTypeProviderComponent,
+#     provider: AuthTokenTypeProvider,
 # }]
 # pub trait HasAuthTokenType {
 #     type AuthToken;
@@ -405,16 +405,16 @@ instance as follows:
 # use cgp::core::error::ErrorRaiser;
 #
 # #[cgp_component {
-#     name: TimeTypeComponent,
-#     provider: ProvideTimeType,
+#     name: TimeTypeProviderComponent,
+#     provider: TimeTypeProvider,
 # }]
 # pub trait HasTimeType {
 #     type Time;
 # }
 #
 # #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
+#     name: AuthTokenTypeProviderComponent,
+#     provider: AuthTokenTypeProvider,
 # }]
 # pub trait HasAuthTokenType {
 #     type AuthToken;
@@ -469,16 +469,16 @@ But in case if it does not, we can still do something similar using a customized
 use sha1::{Digest, Sha1};
 
 # #[cgp_component {
-#     name: TimeTypeComponent,
-#     provider: ProvideTimeType,
+#     name: TimeTypeProviderComponent,
+#     provider: TimeTypeProvider,
 # }]
 # pub trait HasTimeType {
 #     type Time;
 # }
 #
 # #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
+#     name: AuthTokenTypeProviderComponent,
+#     provider: AuthTokenTypeProvider,
 # }]
 # pub trait HasAuthTokenType {
 #     type AuthToken;
@@ -542,16 +542,16 @@ as follows:
 use sha1::{Digest, Sha1};
 
 # #[cgp_component {
-#     name: TimeTypeComponent,
-#     provider: ProvideTimeType,
+#     name: TimeTypeProviderComponent,
+#     provider: TimeTypeProvider,
 # }]
 # pub trait HasTimeType {
 #     type Time;
 # }
 #
 # #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
+#     name: AuthTokenTypeProviderComponent,
+#     provider: AuthTokenTypeProvider,
 # }]
 # pub trait HasAuthTokenType {
 #     type AuthToken;

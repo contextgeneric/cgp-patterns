@@ -210,8 +210,8 @@ pub mod contexts {
 
     pub struct RaiseAppErrors;
 
-    impl HasComponents for App {
-        type Components = AppComponents;
+    impl HasProvider for App {
+        type Provider = AppComponents;
     }
 
     delegate_components! {
@@ -806,8 +806,8 @@ pub mod contexts {
 
     pub struct RaiseAppErrors;
 
-    impl HasComponents for App {
-        type Components = AppComponents;
+    impl HasProvider for App {
+        type Provider = AppComponents;
     }
 
     delegate_components! {
@@ -1068,8 +1068,8 @@ pub struct RaiseAppErrors;
 
 pub struct WrapAppErrors;
 
-impl HasComponents for App {
-    type Components = AppComponents;
+impl HasProvider for App {
+    type Provider = AppComponents;
 }
 
 delegate_components! {

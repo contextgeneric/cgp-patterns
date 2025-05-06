@@ -328,8 +328,8 @@ pub mod contexts {
 
     pub struct MyErrorRaiserComponents;
 
-    impl HasComponents for MyApp {
-        type Components = MyAppComponents;
+    impl HasProvider for MyApp {
+        type Provider = MyAppComponents;
     }
 
     delegate_components! {

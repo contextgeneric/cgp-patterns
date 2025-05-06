@@ -55,6 +55,7 @@ Consider if we made a mistake and forgot to implement `Serialize` for `Person`:
 #
 # pub struct FormatAsJsonString;
 #
+# #[cgp_provider(StringFormatterComponent)]
 # impl<Context> StringFormatter<Context> for FormatAsJsonString
 # where
 #     Context: Serialize,
@@ -66,6 +67,7 @@ Consider if we made a mistake and forgot to implement `Serialize` for `Person`:
 #
 # pub struct ParseFromJsonString;
 #
+# #[cgp_provider(StringParserComponent)]
 # impl<Context> StringParser<Context> for ParseFromJsonString
 # where
 #     Context: for<'a> Deserialize<'a>,
@@ -84,8 +86,8 @@ pub struct Person {
 
 pub struct PersonComponents;
 
-impl HasComponents for Person {
-    type Components = PersonComponents;
+impl HasProvider for Person {
+    type Provider = PersonComponents;
 }
 
 delegate_components! {
@@ -147,6 +149,7 @@ call `format_to_string`, and check if it works:
 #
 # pub struct ParseFromJsonString;
 #
+# #[cgp_provider(StringParserComponent)]
 # impl<Context> StringParser<Context> for ParseFromJsonString
 # where
 #     Context: for<'a> Deserialize<'a>,
@@ -165,8 +168,8 @@ call `format_to_string`, and check if it works:
 #
 # pub struct PersonComponents;
 #
-# impl HasComponents for Person {
-#     type Components = PersonComponents;
+# impl HasProvider for Person {
+#     type Provider = PersonComponents;
 # }
 #
 # delegate_components! {
@@ -294,6 +297,7 @@ defined as follows:
 #
 # pub struct FormatAsJsonString;
 #
+# #[cgp_provider(StringFormatterComponent)]
 # impl<Context> StringFormatter<Context> for FormatAsJsonString
 # where
 #     Context: Serialize,
@@ -305,6 +309,7 @@ defined as follows:
 #
 # pub struct ParseFromJsonString;
 #
+# #[cgp_provider(StringParserComponent)]
 # impl<Context> StringParser<Context> for ParseFromJsonString
 # where
 #     Context: for<'a> Deserialize<'a>,
@@ -323,8 +328,8 @@ defined as follows:
 #
 # pub struct PersonComponents;
 #
-# impl HasComponents for Person {
-#     type Components = PersonComponents;
+# impl HasProvider for Person {
+#     type Provider = PersonComponents;
 # }
 #
 # delegate_components! {
@@ -443,6 +448,7 @@ the super trait of `CanUsePerson` as follows:
 #
 # pub struct FormatAsJsonString;
 #
+# #[cgp_provider(StringFormatterComponent)]
 # impl<Context> StringFormatter<Context> for FormatAsJsonString
 # where
 #     Context: Serialize,
@@ -454,6 +460,7 @@ the super trait of `CanUsePerson` as follows:
 #
 # pub struct ParseFromJsonString;
 #
+# #[cgp_provider(StringParserComponent)]
 # impl<Context> StringParser<Context> for ParseFromJsonString
 # where
 #     Context: for<'a> Deserialize<'a>,
@@ -472,8 +479,8 @@ the super trait of `CanUsePerson` as follows:
 #
 # pub struct PersonComponents;
 #
-# impl HasComponents for Person {
-#     type Components = PersonComponents;
+# impl HasProvider for Person {
+#     type Provider = PersonComponents;
 # }
 #
 # delegate_components! {
