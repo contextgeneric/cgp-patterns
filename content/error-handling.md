@@ -538,7 +538,7 @@ pub mod contexts {
 
 In the updated code, we refactored `ValidateTokenIsNotExpired` to use `CanRaiseError<ErrAuthTokenHasExpired>`, with `ErrAuthTokenHasExpired` implementing only `Debug`. Additionally, we use the provider `UseAnyhowError` from `cgp-error-anyhow`, which implements `ProvideErrorType` by setting `Error` to `anyhow::Error`.
 
-In the component wiring for `MockAppComponents`, we wire up `ErrorTypeComponent` with `UseAnyhowError` and `ErrorRaiserComponent` with `DebugAnyhowError`. In the context-specific implementation `AuthTokenExpiryFetcher<MockApp>`, we can now use `anyhow::Error` directly, since Rust already knows that `MockApp::Error` is the same type as `anyhow::Error`.
+In the component wiring for `MockAppComponents`, we wire up `ErrorTypeProviderComponent` with `UseAnyhowError` and `ErrorRaiserComponent` with `DebugAnyhowError`. In the context-specific implementation `AuthTokenExpiryFetcher<MockApp>`, we can now use `anyhow::Error` directly, since Rust already knows that `MockApp::Error` is the same type as `anyhow::Error`.
 
 ## Conclusion
 

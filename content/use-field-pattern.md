@@ -22,14 +22,16 @@ Similar to the [`UseDelegate` pattern](./delegated-error-raiser.md), the `UseFie
 # use cgp::prelude::*;
 # use cgp::core::field::UseField;
 #
-# #[cgp_component {
-#     provider: ApiBaseUrlGetter,
-# }]
+# #[cgp_component(ApiBaseUrlGetter)]
 # pub trait HasApiBaseUrl {
 #     fn api_base_url(&self) -> &String;
 # }
 #
-# cgp_type!( AuthToken );
+# #[cgp_type]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
+#
 # #[cgp_component {
 #     provider: AuthTokenGetter,
 # }]
@@ -37,6 +39,7 @@ Similar to the [`UseDelegate` pattern](./delegated-error-raiser.md), the `UseFie
 #     fn auth_token(&self) -> &Self::AuthToken;
 # }
 #
+#[cgp_provider]
 impl<Context, Tag> ApiBaseUrlGetter<Context> for UseField<Tag>
 where
     Context: HasField<Tag, Value = String>,
@@ -46,6 +49,7 @@ where
     }
 }
 
+#[cgp_provider]
 impl<Context, Tag> AuthTokenGetter<Context> for UseField<Tag>
 where
     Context: HasAuthTokenType + HasField<Tag, Value = Context::AuthToken>,
@@ -76,7 +80,7 @@ By combining `#[cgp_getter]` with `UseField`, we can streamline the implementati
 #
 # use cgp::core::component::UseDelegate;
 # use cgp::extra::error::RaiseFrom;
-# use cgp::core::error::{ErrorRaiserComponent, ErrorTypeComponent};
+# use cgp::core::error::{ErrorRaiserComponent, ErrorTypeProviderComponent};
 # use cgp::core::field::UseField;
 # use cgp::prelude::*;
 # use cgp_error_anyhow::{DebugAnyhowError, UseAnyhowError};
@@ -84,33 +88,36 @@ By combining `#[cgp_getter]` with `UseField`, we can streamline the implementati
 # use reqwest::StatusCode;
 # use serde::Deserialize;
 #
-# cgp_type!( Message );
-# cgp_type!( MessageId );
-# cgp_type!( AuthToken );
+# #[cgp_type]
+# pub trait HasMessageType {
+#     type Message;
+# }
 #
-# #[cgp_component {
-#     provider: MessageQuerier,
-# }]
+# #[cgp_type]
+# pub trait HasMessageIdType {
+#     type MessageId;
+# }
+#
+# #[cgp_type]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
+#
+# #[cgp_component(MessageQuerier)]
 # pub trait CanQueryMessage: HasMessageIdType + HasMessageType + HasErrorType {
 #     fn query_message(&self, message_id: &Self::MessageId) -> Result<Self::Message, Self::Error>;
 # }
 #
-#[cgp_getter {
-    provider: ApiBaseUrlGetter,
-}]
+#[cgp_getter]
 pub trait HasApiBaseUrl {
     fn api_base_url(&self) -> &String;
 }
 
-#[cgp_getter {
-    provider: AuthTokenGetter,
-}]
+#[cgp_getter]
 pub trait HasAuthToken: HasAuthTokenType {
     fn auth_token(&self) -> &Self::AuthToken;
 }
 
-# pub struct ReadMessageFromApi;
-#
 # #[derive(Debug)]
 # pub struct ErrStatusCode {
 #     pub status_code: StatusCode,
@@ -121,6 +128,7 @@ pub trait HasAuthToken: HasAuthTokenType {
 #     pub message: String,
 # }
 #
+# #[cgp_new_provider]
 # impl<Context> MessageQuerier<Context> for ReadMessageFromApi
 # where
 #     Context: HasMessageIdType<MessageId = u64>
@@ -154,26 +162,19 @@ pub trait HasAuthToken: HasAuthTokenType {
 #     }
 # }
 #
+# #[cgp_context]
 # #[derive(HasField)]
 # pub struct ApiClient {
 #     pub api_base_url: String,
 #     pub auth_token: String,
 # }
 #
-# pub struct ApiClientComponents;
-#
-# pub struct RaiseApiErrors;
-#
-# impl HasProvider for ApiClient {
-#     type Provider = ApiClientComponents;
-# }
-#
 delegate_components! {
     ApiClientComponents {
-        ErrorTypeComponent: UseAnyhowError,
+        ErrorTypeProviderComponent: UseAnyhowError,
         ErrorRaiserComponent: UseDelegate<RaiseApiErrors>,
-        MessageIdTypeComponent: UseType<u64>,
-        MessageTypeComponent: UseType<String>,
+        MessageIdTypeProviderComponent: UseType<u64>,
+        MessageTypeProviderComponent: UseType<String>,
         AuthTokenTypeProviderComponent: UseType<String>,
         ApiBaseUrlGetterComponent: UseField<symbol!("api_base_url")>,
         AuthTokenGetterComponent: UseField<symbol!("auth_token")>,
@@ -182,7 +183,7 @@ delegate_components! {
 }
 #
 # delegate_components! {
-#     RaiseApiErrors {
+#     new RaiseApiErrors {
 #         reqwest::Error: RaiseFrom,
 #         ErrStatusCode: DebugAnyhowError,
 #     }

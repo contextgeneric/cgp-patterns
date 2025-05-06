@@ -11,12 +11,17 @@ Suppose our application needs to make API calls to an external service to read m
 #
 use cgp::prelude::*;
 
-cgp_type!( Message );
-cgp_type!( MessageId );
+#[cgp_type]
+pub trait HasMessageType {
+    type Message;
+}
 
-#[cgp_component {
-    provider: MessageQuerier,
-}]
+#[cgp_type]
+pub trait HasMessageIdType {
+    type MessageId;
+}
+
+#[cgp_component(MessageQuerier)]
 pub trait CanQueryMessage: HasMessageIdType + HasMessageType + HasErrorType {
     fn query_message(&self, message_id: &Self::MessageId) -> Result<Self::Message, Self::Error>;
 }
@@ -36,18 +41,21 @@ use reqwest::blocking::Client;
 use reqwest::StatusCode;
 use serde::Deserialize;
 #
-# cgp_type!( Message );
-# cgp_type!( MessageId );
+# #[cgp_type]
+# pub trait HasMessageType {
+#     type Message;
+# }
 #
-# #[cgp_component {
-#     provider: MessageQuerier,
-# }]
+# #[cgp_type]
+# pub trait HasMessageIdType {
+#     type MessageId;
+# }
+#
+# #[cgp_component(MessageQuerier)]
 # pub trait CanQueryMessage: HasMessageIdType + HasMessageType + HasErrorType {
 #     fn query_message(&self, message_id: &Self::MessageId) -> Result<Self::Message, Self::Error>;
 # }
 #
-pub struct ReadMessageFromApi;
-
 #[derive(Debug)]
 pub struct ErrStatusCode {
     pub status_code: StatusCode,
@@ -58,6 +66,7 @@ pub struct ApiMessageResponse {
     pub message: String,
 }
 
+#[cgp_new_provider]
 impl<Context> MessageQuerier<Context> for ReadMessageFromApi
 where
     Context: HasMessageIdType<MessageId = u64>
@@ -105,9 +114,7 @@ In CGP, defining an accessor trait to retrieve values from the context is straig
 #
 # use cgp::prelude::*;
 #
-#[cgp_component {
-    provider: ApiBaseUrlGetter,
-}]
+#[cgp_component(ApiBaseUrlGetter)]
 pub trait HasApiBaseUrl {
     fn api_base_url(&self) -> &String;
 }
@@ -127,24 +134,25 @@ Next, we can include the `HasApiBaseUrl` trait within `ReadMessageFromApi`, allo
 # use reqwest::StatusCode;
 # use serde::Deserialize;
 #
-# cgp_type!( Message );
-# cgp_type!( MessageId );
+# #[cgp_type]
+# pub trait HasMessageType {
+#     type Message;
+# }
 #
-# #[cgp_component {
-#     provider: MessageQuerier,
-# }]
+# #[cgp_type]
+# pub trait HasMessageIdType {
+#     type MessageId;
+# }
+#
+# #[cgp_component(MessageQuerier)]
 # pub trait CanQueryMessage: HasMessageIdType + HasMessageType + HasErrorType {
 #     fn query_message(&self, message_id: &Self::MessageId) -> Result<Self::Message, Self::Error>;
 # }
 #
-# #[cgp_component {
-#     provider: ApiBaseUrlGetter,
-# }]
+# #[cgp_component(ApiBaseUrlGetter)]
 # pub trait HasApiBaseUrl {
 #     fn api_base_url(&self) -> &String;
 # }
-#
-# pub struct ReadMessageFromApi;
 #
 # #[derive(Debug)]
 # pub struct ErrStatusCode {
@@ -156,6 +164,7 @@ Next, we can include the `HasApiBaseUrl` trait within `ReadMessageFromApi`, allo
 #     pub message: String,
 # }
 #
+#[cgp_new_provider]
 impl<Context> MessageQuerier<Context> for ReadMessageFromApi
 where
     Context: HasMessageIdType<MessageId = u64>
@@ -195,11 +204,12 @@ Just as we did with `HasApiBaseUrl`, we can define a `HasAuthToken` trait to ret
 #
 # use cgp::prelude::*;
 #
-cgp_type!( AuthToken );
+#[cgp_type]
+pub trait HasAuthTokenType {
+    type AuthToken;
+}
 
-#[cgp_component {
-    provider: AuthTokenGetter,
-}]
+#[cgp_component(AuthTokenGetter)]
 pub trait HasAuthToken: HasAuthTokenType {
     fn auth_token(&self) -> &Self::AuthToken;
 }
@@ -221,13 +231,22 @@ Next, we define a getter trait, `HasAuthToken`, which provides access to an abst
 # use reqwest::StatusCode;
 # use serde::Deserialize;
 #
-# cgp_type!( Message );
-# cgp_type!( MessageId );
-# cgp_type!( AuthToken );
+# #[cgp_type]
+# pub trait HasMessageType {
+#     type Message;
+# }
 #
-# #[cgp_component {
-#     provider: MessageQuerier,
-# }]
+# #[cgp_type]
+# pub trait HasMessageIdType {
+#     type MessageId;
+# }
+#
+# #[cgp_type]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
+#
+# #[cgp_component(MessageQuerier)]
 # pub trait CanQueryMessage: HasMessageIdType + HasMessageType + HasErrorType {
 #     fn query_message(&self, message_id: &Self::MessageId) -> Result<Self::Message, Self::Error>;
 # }
@@ -246,8 +265,6 @@ Next, we define a getter trait, `HasAuthToken`, which provides access to an abst
 #     fn auth_token(&self) -> &Self::AuthToken;
 # }
 #
-# pub struct ReadMessageFromApi;
-#
 # #[derive(Debug)]
 # pub struct ErrStatusCode {
 #     pub status_code: StatusCode,
@@ -258,6 +275,7 @@ Next, we define a getter trait, `HasAuthToken`, which provides access to an abst
 #     pub message: String,
 # }
 #
+#[cgp_new_provider]
 impl<Context> MessageQuerier<Context> for ReadMessageFromApi
 where
     Context: HasMessageIdType<MessageId = u64>
@@ -303,11 +321,12 @@ When creating providers like `ReadMessageFromApi`, which often need to use both 
 #
 # use cgp::prelude::*;
 #
-# cgp_type!( AuthToken );
+# #[cgp_type]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
 #
-#[cgp_component {
-    provider: ApiClientFieldsGetter,
-}]
+#[cgp_component(ApiClientFieldsGetter)]
 pub trait HasApiClientFields: HasAuthTokenType {
     fn api_base_url(&self) -> &String;
 
@@ -339,9 +358,7 @@ pub struct ApiClientFields {
     pub auth_token: String,
 }
 
-#[cgp_component {
-    provider: ApiClientFieldsGetter,
-}]
+#[cgp_component(ApiClientFieldsGetter)]
 pub trait HasApiClientFields {
     fn api_client_fields(&self) -> &ApiClientFields;
 }
@@ -370,20 +387,29 @@ as follows:
 #
 # use cgp::core::component::UseDelegate;
 # use cgp::extra::error::RaiseFrom;
-# use cgp::core::error::{ErrorRaiserComponent, ErrorTypeComponent};
+# use cgp::core::error::{ErrorRaiserComponent, ErrorTypeProviderComponent};
 # use cgp::prelude::*;
 # use cgp_error_anyhow::{DebugAnyhowError, UseAnyhowError};
 # use reqwest::blocking::Client;
 # use reqwest::StatusCode;
 # use serde::Deserialize;
 #
-# cgp_type!( Message );
-# cgp_type!( MessageId );
-# cgp_type!( AuthToken );
+# #[cgp_type]
+# pub trait HasMessageType {
+#     type Message;
+# }
 #
-# #[cgp_component {
-#     provider: MessageQuerier,
-# }]
+# #[cgp_type]
+# pub trait HasMessageIdType {
+#     type MessageId;
+# }
+#
+# #[cgp_type]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
+#
+# #[cgp_component(MessageQuerier)]
 # pub trait CanQueryMessage: HasMessageIdType + HasMessageType + HasErrorType {
 #     fn query_message(&self, message_id: &Self::MessageId) -> Result<Self::Message, Self::Error>;
 # }
@@ -402,8 +428,6 @@ as follows:
 #     fn auth_token(&self) -> &Self::AuthToken;
 # }
 #
-# pub struct ReadMessageFromApi;
-#
 # #[derive(Debug)]
 # pub struct ErrStatusCode {
 #     pub status_code: StatusCode,
@@ -414,6 +438,7 @@ as follows:
 #     pub message: String,
 # }
 #
+# #[cgp_new_provider]
 # impl<Context> MessageQuerier<Context> for ReadMessageFromApi
 # where
 #     Context: HasMessageIdType<MessageId = u64>
@@ -447,43 +472,44 @@ as follows:
 #     }
 # }
 #
+#[cgp_context]
 pub struct ApiClient {
     pub api_base_url: String,
     pub auth_token: String,
 }
 
-pub struct ApiClientComponents;
-
-pub struct RaiseApiErrors;
-
-impl HasProvider for ApiClient {
-    type Provider = ApiClientComponents;
-}
-
 delegate_components! {
     ApiClientComponents {
-        ErrorTypeComponent: UseAnyhowError,
-        ErrorRaiserComponent: UseDelegate<RaiseApiErrors>,
-        MessageIdTypeComponent: UseType<u64>,
-        MessageTypeComponent: UseType<String>,
-        AuthTokenTypeProviderComponent: UseType<String>,
-        MessageQuerierComponent: ReadMessageFromApi,
+        ErrorTypeProviderComponent:
+            UseAnyhowError,
+        ErrorRaiserComponent:
+            UseDelegate<RaiseApiErrors>,
+        MessageIdTypeProviderComponent:
+            UseType<u64>,
+        MessageTypeProviderComponent:
+            UseType<String>,
+        AuthTokenTypeProviderComponent:
+            UseType<String>,
+        MessageQuerierComponent:
+            ReadMessageFromApi,
     }
 }
 
 delegate_components! {
-    RaiseApiErrors {
+    new RaiseApiErrors {
         reqwest::Error: RaiseFrom,
         ErrStatusCode: DebugAnyhowError,
     }
 }
 
+#[cgp_provider]
 impl ApiBaseUrlGetter<ApiClient> for ApiClientComponents {
     fn api_base_url(api_client: &ApiClient) -> &String {
         &api_client.api_base_url
     }
 }
 
+#[cgp_provider]
 impl AuthTokenGetter<ApiClient> for ApiClientComponents {
     fn auth_token(api_client: &ApiClient) -> &String {
         &api_client.auth_token
