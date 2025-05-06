@@ -1,14 +1,23 @@
 use anyhow::Error;
 use serde::{Deserialize, Serialize};
 
-pub trait IsProviderFor<Component, Context, Params = ()> {}
-
 pub trait HasProvider {
     type Provider;
 }
 
+pub trait IsProviderFor<Component, Context, Params = ()> {}
+
 pub trait DelegateComponent<Name> {
     type Delegate;
+}
+
+pub trait CanUseComponent<Component, Params = ()> {}
+
+impl<Context, Component, Params> CanUseComponent<Component, Params> for Context
+where
+    Context: HasProvider,
+    Context::Provider: IsProviderFor<Component, Context, Params>,
+{
 }
 
 pub struct StringFormatterComponent;
@@ -146,10 +155,10 @@ impl<Context> IsProviderFor<StringParserComponent, Context> for PersonComponents
 {
 }
 
-pub trait CanUsePersonComponents:
-    IsProviderFor<StringFormatterComponent, Person>
-    + IsProviderFor<StringParserComponent, Person>
+pub trait CanUsePerson:
+    CanUseComponent<StringFormatterComponent>
+    + CanUseComponent<StringParserComponent>
 {
 }
 
-impl CanUsePersonComponents for PersonComponents {}
+impl CanUsePerson for Person {}

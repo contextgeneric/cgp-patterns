@@ -485,360 +485,132 @@ By doing so, we resurface the constraints to Rust, so that it would recursively 
 
 ## Check Traits
 
-We have learned that CGP lazily resolve dependencies and implements consumer
-traits on a concrete context only when they are actively used. However,
-when defining a concrete context, we would like to be able to eagerly check
-that the consumer traits are implemented, so that no confusing error
-should arise when the context is being used.
+Now that we have the wirings for `IsProviderFor` in place, we can implement _check traits_ to check
+on whether the provider traits that we want to use with `Person` are implemented by its provider,
+`PersonComponents`.
 
-By convention, the best approach for implementing such checks is to define
-a _check trait_, which asserts that a concrete context implements all
-consumer traits that we intended to implement. the check trait would be
-defined as follows:
+```rust,ignore
+pub trait CanUsePersonComponents:
+    IsProviderFor<StringFormatterComponent, Person>
+    + IsProviderFor<StringParserComponent, Person>
+{
+}
 
-```rust,compile_fail
-# extern crate anyhow;
-# extern crate serde;
-# extern crate serde_json;
-# extern crate cgp;
-#
-# use cgp::prelude::*;
-# use anyhow::Error;
-# use serde::{Serialize, Deserialize};
-#
-# #[cgp_component {
-#    name: StringFormatterComponent,
-#    provider: StringFormatter,
-#    context: Context,
-# }]
-# pub trait CanFormatToString {
-#     fn format_to_string(&self) -> Result<String, Error>;
-# }
-#
-# #[cgp_component {
-#    name: StringParserComponent,
-#    provider: StringParser,
-#    context: Context,
-# }]
-# pub trait CanParseFromString: Sized {
-#     fn parse_from_string(raw: &str) -> Result<Self, Error>;
-# }
-#
-# pub struct FormatAsJsonString;
-#
-# #[cgp_provider(StringFormatterComponent)]
-# impl<Context> StringFormatter<Context> for FormatAsJsonString
-# where
-#     Context: Serialize,
-# {
-#     fn format_to_string(context: &Context) -> Result<String, Error> {
-#         Ok(serde_json::to_string(context)?)
-#     }
-# }
-#
-# pub struct ParseFromJsonString;
-#
-# #[cgp_provider(StringParserComponent)]
-# impl<Context> StringParser<Context> for ParseFromJsonString
-# where
-#     Context: for<'a> Deserialize<'a>,
-# {
-#     fn parse_from_string(json_str: &str) -> Result<Context, Error> {
-#         Ok(serde_json::from_str(json_str)?)
-#     }
-# }
-#
-# // Note: We forgot to derive Serialize here
-# #[derive(Deserialize, Debug, Eq, PartialEq)]
-# pub struct Person {
-#     pub first_name: String,
-#     pub last_name: String,
-# }
-#
-# pub struct PersonComponents;
-#
-# impl HasProvider for Person {
-#     type Provider = PersonComponents;
-# }
-#
-# delegate_components! {
-#     PersonComponents {
-#         StringFormatterComponent: FormatAsJsonString,
-#         StringParserComponent: ParseFromJsonString,
-#     }
-# }
-#
-pub trait CanUsePerson:
-    CanFormatToString
-    + CanParseFromString
-{}
-
-impl CanUsePerson for Person {}
+impl CanUsePersonComponents for PersonComponents {}
 ```
 
-By convention, a check trait has the name starts with `CanUse`, followed by
-the name of the concrete context. We list all the consumer traits that
-the concrete context should implement as the super trait. The check trait
-has an empty body, followed by a blanket implementation for the target
-concrete context.
+To put it simply, a check trait is defined just for checking whether a type implements other traits that we are
+interested to use with that type. For our case, we want to check that
+`PersonComponents: IsProviderFor<StringFormatterComponent, Person>`
+and `IsProviderFor<StringParserComponent, Person>`, since we expect `PersonComponents` to implement
+`StringFormatter<Person>` and `StringParser<Person>`. So we define a check trait called `CanUsePersonComponents`,
+and put the `IsProviderFor` constraints as the supertrait.
 
-In the example above, we define the check trait `CanUsePerson`, which is used
-to check that the concrete context `Person` implements `CanFormatToString` and
-`CanParseFromString`. If we try to compile the check trait with the
-same example code as before, we would get the following error message:
+The check trait is then followed by an implementation of `CanUsePersonComponents` for `PersonComponents`,
+which acts as an _assertion_ that `PersonComponents` implements all the supertraits that we specified.
 
-```text
-error[E0277]: the trait bound `FormatAsJsonString: StringFormatter<Person>` is not satisfied
-  --> debugging-techniques.md:330:23
-   |
-77 | impl CanUsePerson for Person {}
-   |                       ^^^^^^ the trait `StringFormatter<Person>` is not implemented for `FormatAsJsonString`, which is required by `Person: CanFormatToString`
-   |
-   = help: the trait `StringFormatter<Context>` is implemented for `FormatAsJsonString`
-note: required for `PersonComponents` to implement `StringFormatter<Person>`
-  --> debugging-techniques.md:265:1
-   |
-12 | / #[cgp_component {
-13 | |    name: StringFormatterComponent,
-14 | |    provider: StringFormatter,
-15 | |    context: Context,
-16 | | }]
-   | |__^
-note: required for `Person` to implement `CanFormatToString`
-  --> debugging-techniques.md:265:1
-   |
-12 | / #[cgp_component {
-13 | |    name: StringFormatterComponent,
-14 | |    provider: StringFormatter,
-15 | |    context: Context,
-   | |             ^^^^^^^
-16 | | }]
-   | |__^
-note: required by a bound in `CanUsePerson`
-  --> debugging-techniques.md:326:5
-   |
-72 | pub trait CanUsePerson:
-   |           ------------ required by a bound in this trait
-73 |     CanFormatToString
-   |     ^^^^^^^^^^^^^^^^^ required by this bound in `CanUsePerson`
-   = note: `CanUsePerson` is a "sealed trait", because to implement it you also need to implement `main::_doctest_main_debugging_techniques_md_255_0::CanFormatToString`, which is not accessible; this is usually done to force you to use one of the provided types that already implement it
-   = help: the following type implements the trait:
-             Context
-   = note: this error originates in the attribute macro `cgp_component` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error: aborting due to 1 previous error
-```
-
-The error message is still pretty confusing, but it is slightly more informative
-than the previous error. Here, we can see that the top of the error says that
-`StringFormatter<Person>` is not implemented for `FormatAsJsonString`.
-Although it does not point to the root cause, at least we are guided to look
-into the implementation of `FormatAsJsonString` to find out what went wrong there.
-
-At the moment, there is no better way to simplify debugging further, and
-we need to manually look into `FormatAsJsonString` to check why it could not
-implement `StringFormatter` for the `Person` context. Here, the important
-thing to look for is the additional constraints that `FormatAsJsonString`
-requires on the context, which in this case is `Serialize`.
-
-We can make use of the check trait to further track down all the indirect
-dependencies of the providers that the concrete context uses. In this case,
-we determine that `Serialize` is needed for `FormatAsJsonString`, and
-`Deserialize` is needed for `ParseFromJsonString`. So we add them into
-the super trait of `CanUsePerson` as follows:
-
-```rust,compile_fail
-# extern crate anyhow;
-# extern crate serde;
-# extern crate serde_json;
-# extern crate cgp;
-#
-# use cgp::prelude::*;
-# use anyhow::Error;
-# use serde::{Serialize, Deserialize};
-#
-# #[cgp_component {
-#    name: StringFormatterComponent,
-#    provider: StringFormatter,
-#    context: Context,
-# }]
-# pub trait CanFormatToString {
-#     fn format_to_string(&self) -> Result<String, Error>;
-# }
-#
-# #[cgp_component {
-#    name: StringParserComponent,
-#    provider: StringParser,
-#    context: Context,
-# }]
-# pub trait CanParseFromString: Sized {
-#     fn parse_from_string(raw: &str) -> Result<Self, Error>;
-# }
-#
-# pub struct FormatAsJsonString;
-#
-# #[cgp_provider(StringFormatterComponent)]
-# impl<Context> StringFormatter<Context> for FormatAsJsonString
-# where
-#     Context: Serialize,
-# {
-#     fn format_to_string(context: &Context) -> Result<String, Error> {
-#         Ok(serde_json::to_string(context)?)
-#     }
-# }
-#
-# pub struct ParseFromJsonString;
-#
-# #[cgp_provider(StringParserComponent)]
-# impl<Context> StringParser<Context> for ParseFromJsonString
-# where
-#     Context: for<'a> Deserialize<'a>,
-# {
-#     fn parse_from_string(json_str: &str) -> Result<Context, Error> {
-#         Ok(serde_json::from_str(json_str)?)
-#     }
-# }
-#
-# // Note: We forgot to derive Serialize here
-# #[derive(Deserialize, Debug, Eq, PartialEq)]
-# pub struct Person {
-#     pub first_name: String,
-#     pub last_name: String,
-# }
-#
-# pub struct PersonComponents;
-#
-# impl HasProvider for Person {
-#     type Provider = PersonComponents;
-# }
-#
-# delegate_components! {
-#     PersonComponents {
-#         StringFormatterComponent: FormatAsJsonString,
-#         StringParserComponent: ParseFromJsonString,
-#     }
-# }
-#
-pub trait CanUsePerson:
-    Serialize
-    + for<'a> Deserialize<'a>
-    + CanFormatToString
-    + CanParseFromString
-{}
-
-impl CanUsePerson for Person {}
-```
-
-When we try to compile `CanUsePerson` again, we would see a different error
-message at the top:
+With the checks in place, we now get a compile error message that shows us exactly what we need to fix,
+which is to implement `Serialize` for `Person`:
 
 ```text
 error[E0277]: the trait bound `Person: Serialize` is not satisfied
-   |
-71 | impl CanUsePerson for Person {}
-   |                       ^^^^^^ the trait `Serialize` is not implemented for `Person`
-   |
-   = note: for local types consider adding `#[derive(serde::Serialize)]` to your `Person` type
-   = note: for types from other crates check whether the crate offers a `serde` feature flag
+   --> src/lib.rs:155:33
+    |
+155 | impl CanUsePersonComponents for PersonComponents {}
+    |                                 ^^^^^^^^^^^^^^^^ the trait `Serialize` is not implemented for `Person`
+    |
+    = note: for local types consider adding `#[derive(serde::Serialize)]` to your `Person` type
+    = note: for types from other crates check whether the crate offers a `serde` feature flag
+    = help: the following other types implement trait `Serialize`:
+              &'a T
+              &'a mut T
+              ()
+              (T,)
+              (T0, T1)
+              (T0, T1, T2)
+              (T0, T1, T2, T3)
+              (T0, T1, T2, T3, T4)
+            and 131 others
+note: required for `FormatAsJsonString` to implement `IsProviderFor<StringFormatterComponent, Person>`
+   --> src/lib.rs:91:15
+    |
+91  | impl<Context> IsProviderFor<StringFormatterComponent, Context>
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+92  |     for FormatAsJsonString
+    |         ^^^^^^^^^^^^^^^^^^
+93  | where
+94  |     Context: Serialize,
+    |              --------- unsatisfied trait bound introduced here
+    = note: 1 redundant requirement hidden
+    = note: required for `PersonComponents` to implement `IsProviderFor<StringFormatterComponent, Person>`
+note: required by a bound in `CanUsePersonComponents`
+   --> src/lib.rs:150:5
+    |
+149 | pub trait CanUsePersonComponents:
+    |           ---------------------- required by a bound in this trait
+150 |     IsProviderFor<StringFormatterComponent, Person>
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `CanUsePersonComponents`
 ```
 
-This tells us that we have forgotten to implement `Serialize` for Person.
-We can then take our action to properly fill in the missing dependencies.
+As we can see, the use of `IsProviderFor` helps make it possible for us to debug our CGP programs again.
+This significantly improves the developer experience for CGP, which was significantly harder to debug
+prior to the introduction of this technique in v0.4.0.
 
-## Debugging Check Traits
+## `CanUseComponent` Trait
 
-Due to the need for check traits, the work for implementing a concrete context often
-involves wiring up the providers, and then checking that the providers and all their
-dependencies are implemented. As the number of components increase, the number of
-dependencies we need to check also increase accordingly.
+Although we can directly check for the implementation of `IsProviderFor`, the definition is not as straightforward as
+defining checks directly with the `Person` context. Furthermore, the context type `Person` needs to be repeatedly
+specified for each supertrait, which becomes tedious and adds noise.
 
-When encountering errors in the check traits, it often helps to comment out a large
-portion of the dependencies, to focus on resolving the errors arise from a specific
-dependency. For example, in the check trait we can temporarily check for the
-implementation of `CanFormatToString` by commenting out all other constraints as follows:
+We can improve the check definitions by introducing a helper `CanUseComponent` trait that is defined as follows:
+
+```rust
+# pub trait HasProvider {
+#     type Provider;
+# }
+#
+pub trait IsProviderFor<Component, Context, Params = ()> {}
+
+pub trait CanUseComponent<Component, Params = ()> {}
+
+impl<Context, Component, Params> CanUseComponent<Component, Params> for Context
+where
+    Context: HasProvider,
+    Context::Provider: IsProviderFor<Component, Context, Params>,
+{
+}
+```
+
+Instead of being implemented by a provider, `CanUseComponent` is intended to be implemented by a context type that
+implements `HasProvider`. Compared to `IsProviderFor`, there is no need to specify an explicit `Context` parameter.
+
+`CanUseComponent` also has a blanket implementation, making it automatically implemented for any `Context` type
+that implements `HasProvider`, with `Context::Provider` implementing `IsProviderFor`.
+
+In other words, we are using `CanUseComponent` as a _trait alias_ to `IsProviderFor`, with improved ergonomics
+that we can check directly against a context type.
+
+Using `CanUseComponent`, we can re-define our check trait much simply as follows:
 
 ```rust,ignore
 pub trait CanUsePerson:
-    Sized
-    // + Serialize
-    // + for<'a> Deserialize<'a>
-    + CanFormatToString
-    // + CanParseFromString
-{}
+    CanUseComponent<StringFormatterComponent>
+    + CanUseComponent<StringParserComponent>
+{
+}
+
+impl CanUsePerson for Person {}
 ```
 
-We add a dummy constaint like `Sized` in the beginning of the super traits for
-`CanUsePerson`, so that we can easily comment out individual lines and not worry
-about whether it would lead to a dangling `+` sign.
-We can then pin point the error to a specific provider, and then continue
-tracing the missing dependencies from there. We would then notice that
-`FormatAsJsonString` requires `Serialize`, which we can then update the
-commented code to:
-
-```rust,ignore
-pub trait CanUsePerson:
-    Sized
-    + Serialize
-    // + for<'a> Deserialize<'a>
-    // + CanFormatToString
-    // + CanParseFromString
-{}
-```
-
-This technique can hopefully help speed up the debugging process, and determine
-which dependency is missing.
-
-## Improving The Compiler Error Message
-
-The need of manual debugging using check traits is probably one of the major blockers
-for spreading CGP for wider adoption. However, it is possible to improve the error
-messages returned from the Rust compiler so that we can more easily find out what
-went wrong.
-
-When Rust fails to resolve the constraints for `Person: CanFormatString`, it in fact
-knows that the reason for the failure is caused by unsatisfied _indirect_ constraints
-such as `Person: Serialize`. So what we need to do is to make Rust prints out the
-unsatisfied constraints.
-
-This has been reported as [issue #134346](https://github.com/rust-lang/rust/issues/134346)
-at the Rust project, with a pending fix available as
-[pull request #134348](https://github.com/rust-lang/rust/pull/134348).
-But until the patch is merged and stabilized, you can try to use our custom fork of the
-Rust compiler to debug any CGP error.
-
-Following are the steps to use the modified Rust compiler:
-
-- Clone our fork of the Rust compiler at `https://github.com/contextgeneric/rust.git`, or add it as a secondary git remote.
-- Checkout the branch `cgp`, which applies the error reporting patch to the latest stable Rust.
-- Build the Rust compiler following the [official guide](https://rustc-dev-guide.rust-lang.org/building/how-to-build-and-run.html). The steps should be something as follows:
-   - Run `./x setup`
-   - Run `./x build`
-   - Run `./x build proc-macro-srv-cli`, if you wan to use the forked compiler with Rust Analyzer.
-   - Optionally, run `./x build --stage 2` and `./x build --stage 2 proc-macro-srv-cli`, if you want to use the stage 2 compiler.
-- Link the compiled custom compiler using `rustup link`, aliasing it to a custom name like `cgp`. e.g. `rustup toolchain link cgp build/host/stage1`.
-   - Link with `build/host/stage2` if you want to use the stage 2 compiler.
-- Run your project using the custom compiler, e.g. `cargo +cgp check`.
-- To use this with Rust Analyzer, set `channel = "cgp"` inside your project's `rust-toolchain.toml` file.
-
-If everything is working, you should see similar error messages as before, but with additional information included:
+Compared to before, we define the check trait `CanUsePerson` directly on `Person` instead of `PersonComponents`.
+When we try compiling, we would still get the same error message that shows us the required information
+to fix the error:
 
 ```text
-error[E0277]: the trait bound `FormatAsJsonString: StringFormatter<Person>` is not satisfied
-  --> content/debugging-techniques.md:330:23
-   |
-77 | impl CanUsePerson for Person {}
-   |                       ^^^^^^ the trait `StringFormatter<Person>` is not implemented for `FormatAsJsonString`
-   |
-   = help: the following constraint is not satisfied: `Person: Serialize`
-   = help: the trait `StringFormatter<Context>` is implemented for `FormatAsJsonString`
-note: required for `PersonComponents` to implement `StringFormatter<Person>`
+error[E0277]: the trait bound `Person: CanUseComponent<StringFormatterComponent>` is not satisfied
+   --> src/lib.rs:164:23
+    |
+164 | impl CanUsePerson for Person {}
+    |                       ^^^^^^ the trait `Serialize` is not implemented for `Person`
+...
 ```
-
-After the main error is shown, we can also see an extra help hint that says:
-`the following constraint is not satisfied: Person: Serialize`. Thanks to that,
-we can now much more easily pin point the source of error, and proceed to fix
-our CGP program.
-
-We hope that our patch will soon be accepted by the Rust project, so that future
-versions of Rust will be more accessible for CGP. When that happens, we will
-update this chapter to reflect the changes.
