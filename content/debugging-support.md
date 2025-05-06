@@ -1,4 +1,4 @@
-# Debugging Techniques
+# Debugging Support
 
 By leveraging [impl-side dependencies](./impl-side-dependencies.md), CGP providers
 are able to include additional dependencies that are not specified in the provider
@@ -22,40 +22,60 @@ try to use a consumer trait against a concrete context.
 ## Unsatisfied Dependency Errors
 
 To demonstrate how such error would arise, we would reuse the same example
-`Person` context as the [previous chapter](./component-macros.md#example-use).
+`Person` context as the [previous chapter](./provider-delegation.md).
 Consider if we made a mistake and forgot to implement `Serialize` for `Person`:
+
 
 ```rust
 # extern crate anyhow;
 # extern crate serde;
 # extern crate serde_json;
-# extern crate cgp;
 #
-# use cgp::prelude::*;
 # use anyhow::Error;
 # use serde::{Serialize, Deserialize};
 #
-# #[cgp_component {
-#    name: StringFormatterComponent,
-#    provider: StringFormatter,
-#    context: Context,
-# }]
+# pub trait HasProvider {
+#     type Provider;
+# }
+#
 # pub trait CanFormatToString {
 #     fn format_to_string(&self) -> Result<String, Error>;
 # }
 #
-# #[cgp_component {
-#    name: StringParserComponent,
-#    provider: StringParser,
-#    context: Context,
-# }]
 # pub trait CanParseFromString: Sized {
 #     fn parse_from_string(raw: &str) -> Result<Self, Error>;
 # }
 #
+# pub trait StringFormatter<Context> {
+#     fn format_to_string(context: &Context) -> Result<String, Error>;
+# }
+#
+# pub trait StringParser<Context> {
+#     fn parse_from_string(raw: &str) -> Result<Context, Error>;
+# }
+#
+# impl<Context> CanFormatToString for Context
+# where
+#     Context: HasProvider,
+#     Context::Provider: StringFormatter<Context>,
+# {
+#     fn format_to_string(&self) -> Result<String, Error> {
+#         Context::Provider::format_to_string(self)
+#     }
+# }
+#
+# impl<Context> CanParseFromString for Context
+# where
+#     Context: HasProvider,
+#     Context::Provider: StringParser<Context>,
+# {
+#     fn parse_from_string(raw: &str) -> Result<Context, Error> {
+#         Context::Provider::parse_from_string(raw)
+#     }
+# }
+#
 # pub struct FormatAsJsonString;
 #
-# #[cgp_provider(StringFormatterComponent)]
 # impl<Context> StringFormatter<Context> for FormatAsJsonString
 # where
 #     Context: Serialize,
@@ -67,7 +87,6 @@ Consider if we made a mistake and forgot to implement `Serialize` for `Person`:
 #
 # pub struct ParseFromJsonString;
 #
-# #[cgp_provider(StringParserComponent)]
 # impl<Context> StringParser<Context> for ParseFromJsonString
 # where
 #     Context: for<'a> Deserialize<'a>,
@@ -77,7 +96,34 @@ Consider if we made a mistake and forgot to implement `Serialize` for `Person`:
 #     }
 # }
 #
-// Note: We forgot to derive Serialize here
+# pub trait DelegateComponent<Name> {
+#     type Delegate;
+# }
+#
+# pub struct StringFormatterComponent;
+#
+# pub struct StringParserComponent;
+#
+# impl<Context, Component> StringFormatter<Context> for Component
+# where
+#     Component: DelegateComponent<StringFormatterComponent>,
+#     Component::Delegate: StringFormatter<Context>,
+# {
+#     fn format_to_string(context: &Context) -> Result<String, Error> {
+#         Component::Delegate::format_to_string(context)
+#     }
+# }
+#
+# impl<Context, Component> StringParser<Context> for Component
+# where
+#     Component: DelegateComponent<StringParserComponent>,
+#     Component::Delegate: StringParser<Context>,
+# {
+#     fn parse_from_string(raw: &str) -> Result<Context, Error> {
+#         Component::Delegate::parse_from_string(raw)
+#     }
+# }
+// Note: We pretend to forgot to derive Serialize here
 #[derive(Deserialize, Debug, Eq, PartialEq)]
 pub struct Person {
     pub first_name: String,
@@ -90,11 +136,12 @@ impl HasProvider for Person {
     type Provider = PersonComponents;
 }
 
-delegate_components! {
-    PersonComponents {
-        StringFormatterComponent: FormatAsJsonString,
-        StringParserComponent: ParseFromJsonString,
-    }
+impl DelegateComponent<StringFormatterComponent> for PersonComponents {
+    type Delegate = FormatAsJsonString;
+}
+
+impl DelegateComponent<StringParserComponent> for PersonComponents {
+    type Delegate = ParseFromJsonString;
 }
 ```
 
@@ -107,33 +154,52 @@ However, notice that the above code still compiles successfully. This is because
 have not yet try to use `CanFormatToString` on person. We can try to add test code to
 call `format_to_string`, and check if it works:
 
-
 ```rust,compile_fail
 # extern crate anyhow;
 # extern crate serde;
 # extern crate serde_json;
-# extern crate cgp;
 #
-# use cgp::prelude::*;
 # use anyhow::Error;
 # use serde::{Serialize, Deserialize};
 #
-# #[cgp_component {
-#    name: StringFormatterComponent,
-#    provider: StringFormatter,
-#    context: Context,
-# }]
+# pub trait HasProvider {
+#     type Provider;
+# }
+#
 # pub trait CanFormatToString {
 #     fn format_to_string(&self) -> Result<String, Error>;
 # }
 #
-# #[cgp_component {
-#    name: StringParserComponent,
-#    provider: StringParser,
-#    context: Context,
-# }]
 # pub trait CanParseFromString: Sized {
 #     fn parse_from_string(raw: &str) -> Result<Self, Error>;
+# }
+#
+# pub trait StringFormatter<Context> {
+#     fn format_to_string(context: &Context) -> Result<String, Error>;
+# }
+#
+# pub trait StringParser<Context> {
+#     fn parse_from_string(raw: &str) -> Result<Context, Error>;
+# }
+#
+# impl<Context> CanFormatToString for Context
+# where
+#     Context: HasProvider,
+#     Context::Provider: StringFormatter<Context>,
+# {
+#     fn format_to_string(&self) -> Result<String, Error> {
+#         Context::Provider::format_to_string(self)
+#     }
+# }
+#
+# impl<Context> CanParseFromString for Context
+# where
+#     Context: HasProvider,
+#     Context::Provider: StringParser<Context>,
+# {
+#     fn parse_from_string(raw: &str) -> Result<Context, Error> {
+#         Context::Provider::parse_from_string(raw)
+#     }
 # }
 #
 # pub struct FormatAsJsonString;
@@ -149,7 +215,6 @@ call `format_to_string`, and check if it works:
 #
 # pub struct ParseFromJsonString;
 #
-# #[cgp_provider(StringParserComponent)]
 # impl<Context> StringParser<Context> for ParseFromJsonString
 # where
 #     Context: for<'a> Deserialize<'a>,
@@ -159,7 +224,34 @@ call `format_to_string`, and check if it works:
 #     }
 # }
 #
-# // Note: We forgot to derive Serialize here
+# pub trait DelegateComponent<Name> {
+#     type Delegate;
+# }
+#
+# pub struct StringFormatterComponent;
+#
+# pub struct StringParserComponent;
+#
+# impl<Context, Component> StringFormatter<Context> for Component
+# where
+#     Component: DelegateComponent<StringFormatterComponent>,
+#     Component::Delegate: StringFormatter<Context>,
+# {
+#     fn format_to_string(context: &Context) -> Result<String, Error> {
+#         Component::Delegate::format_to_string(context)
+#     }
+# }
+#
+# impl<Context, Component> StringParser<Context> for Component
+# where
+#     Component: DelegateComponent<StringParserComponent>,
+#     Component::Delegate: StringParser<Context>,
+# {
+#     fn parse_from_string(raw: &str) -> Result<Context, Error> {
+#         Component::Delegate::parse_from_string(raw)
+#     }
+# }
+# // Note: We pretend to forgot to derive Serialize here
 # #[derive(Deserialize, Debug, Eq, PartialEq)]
 # pub struct Person {
 #     pub first_name: String,
@@ -172,11 +264,12 @@ call `format_to_string`, and check if it works:
 #     type Provider = PersonComponents;
 # }
 #
-# delegate_components! {
-#     PersonComponents {
-#         StringFormatterComponent: FormatAsJsonString,
-#         StringParserComponent: ParseFromJsonString,
-#     }
+# impl DelegateComponent<StringFormatterComponent> for PersonComponents {
+#     type Delegate = FormatAsJsonString;
+# }
+#
+# impl DelegateComponent<StringParserComponent> for PersonComponents {
+#     type Delegate = ParseFromJsonString;
 # }
 #
 let person = Person { first_name: "John".into(), last_name: "Smith".into() };
@@ -252,7 +345,207 @@ Technically, there is no reason why the Rust compiler cannot be improved to
 show more detailed errors to make using CGP easier. However, improving the
 compiler will take time, and we need to present strong argument on why
 such improvement is needed, e.g. through this book. Until then, we need
-temporary workarounds to make it easier to debug CGP errors in the meanwhile.
+workarounds to make it easier to debug CGP errors in the meanwhile.
+
+## `IsProviderFor` Trait
+
+Since `cgp` v0.4, we have developed a technique to explicitly propagate the constraint
+requirements, and "trick" Rust to show us the error messages that we need.
+We will first define a `IsProviderFor` trait as follows:
+
+```rust
+pub trait IsProviderFor<Component, Context, Params = ()> {}
+```
+
+The `IsProviderFor` trait is a marker trait that can be trivially implemented.
+It is intended to be implemented by provider structs, and is parameterized by 3 generic parameters:
+
+- `Component` - The component name type that corresponds to the provider implementation.
+- `Context` - The context type that is implemented by the provider.
+- `Params` - Any additional generic parameters present in the provider trait, combined as a tuple.
+
+Even though the `IsProviderFor` trait can be trivially implemented, we intentionally include
+additional constraints that are exactly the same as the original constraints specified in
+the corresponding provider trait implementation.
+
+For example, the provider `FormatAsJsonString` in the earlier example would implement
+`IsProviderFor` as follows:
+
+```rust
+# extern crate anyhow;
+# extern crate serde;
+# extern crate serde_json;
+#
+# use anyhow::Error;
+# use serde::{Serialize, Deserialize};
+#
+# pub trait IsProviderFor<Component, Context, Params = ()> {}
+#
+# pub struct StringFormatterComponent;
+#
+# pub trait StringFormatter<Context> {
+#     fn format_to_string(context: &Context) -> Result<String, Error>;
+# }
+#
+pub struct FormatAsJsonString;
+
+impl<Context> StringFormatter<Context> for FormatAsJsonString
+where
+    Context: Serialize,
+{
+    fn format_to_string(context: &Context) -> Result<String, Error> {
+        Ok(serde_json::to_string(context)?)
+    }
+}
+
+impl<Context> IsProviderFor<StringFormatterComponent, Context> for FormatAsJsonString
+where
+    Context: Serialize,
+{ }
+```
+
+The way to understand the trait implementation is follows: `FormatAsJsonString`
+has a provider implementation for `StringFormatterComponent` with the context `Context`,
+given that `Context: Serialize`.
+
+We can think of `IsProviderFor` trait to act as a "carrier" for the hidden constraints
+of provider traits. With it, instead of trying to check each provider trait implementation,
+we only need to check for the implementation of one trait, `IsProviderFor`.
+
+
+```rust
+# extern crate anyhow;
+# extern crate serde;
+# extern crate serde_json;
+#
+# use anyhow::Error;
+# use serde::{Serialize, Deserialize};
+#
+# pub trait IsProviderFor<Component, Context, Params = ()> {}
+#
+# pub trait HasProvider {
+#     type Provider;
+# }
+#
+# pub trait CanFormatToString {
+#     fn format_to_string(&self) -> Result<String, Error>;
+# }
+#
+# pub trait CanParseFromString: Sized {
+#     fn parse_from_string(raw: &str) -> Result<Self, Error>;
+# }
+#
+# pub trait StringFormatter<Context> {
+#     fn format_to_string(context: &Context) -> Result<String, Error>;
+# }
+#
+# pub trait StringParser<Context> {
+#     fn parse_from_string(raw: &str) -> Result<Context, Error>;
+# }
+#
+# impl<Context> CanFormatToString for Context
+# where
+#     Context: HasProvider,
+#     Context::Provider: StringFormatter<Context>,
+# {
+#     fn format_to_string(&self) -> Result<String, Error> {
+#         Context::Provider::format_to_string(self)
+#     }
+# }
+#
+# impl<Context> CanParseFromString for Context
+# where
+#     Context: HasProvider,
+#     Context::Provider: StringParser<Context>,
+# {
+#     fn parse_from_string(raw: &str) -> Result<Context, Error> {
+#         Context::Provider::parse_from_string(raw)
+#     }
+# }
+#
+# pub struct FormatAsJsonString;
+#
+# impl<Context> StringFormatter<Context> for FormatAsJsonString
+# where
+#     Context: Serialize,
+# {
+#     fn format_to_string(context: &Context) -> Result<String, Error> {
+#         Ok(serde_json::to_string(context)?)
+#     }
+# }
+#
+# impl<Context> IsProviderFor<StringFormatterComponent, Context> for FormatAsJsonString
+# where
+#     Context: Serialize,
+# { }
+#
+# pub struct ParseFromJsonString;
+#
+# impl<Context> StringParser<Context> for ParseFromJsonString
+# where
+#     Context: for<'a> Deserialize<'a>,
+# {
+#     fn parse_from_string(json_str: &str) -> Result<Context, Error> {
+#         Ok(serde_json::from_str(json_str)?)
+#     }
+# }
+#
+# impl<Context> IsProviderFor<StringParserComponent, Context> for ParseFromJsonString
+# where
+#     Context: for<'a> Deserialize<'a>,
+# { }
+#
+# pub trait DelegateComponent<Name> {
+#     type Delegate;
+# }
+#
+# pub struct StringFormatterComponent;
+#
+# pub struct StringParserComponent;
+#
+# impl<Context, Component> StringFormatter<Context> for Component
+# where
+#     Component: DelegateComponent<StringFormatterComponent>,
+#     Component::Delegate: StringFormatter<Context>,
+# {
+#     fn format_to_string(context: &Context) -> Result<String, Error> {
+#         Component::Delegate::format_to_string(context)
+#     }
+# }
+#
+# impl<Context, Component> StringParser<Context> for Component
+# where
+#     Component: DelegateComponent<StringParserComponent>,
+#     Component::Delegate: StringParser<Context>,
+# {
+#     fn parse_from_string(raw: &str) -> Result<Context, Error> {
+#         Component::Delegate::parse_from_string(raw)
+#     }
+# }
+# // Note: We pretend to forgot to derive Serialize here
+# #[derive(Deserialize, Debug, Eq, PartialEq)]
+# pub struct Person {
+#     pub first_name: String,
+#     pub last_name: String,
+# }
+#
+# pub struct PersonComponents;
+#
+# impl HasProvider for Person {
+#     type Provider = PersonComponents;
+# }
+#
+# impl DelegateComponent<StringFormatterComponent> for PersonComponents {
+#     type Delegate = FormatAsJsonString;
+# }
+#
+# impl DelegateComponent<StringParserComponent> for PersonComponents {
+#     type Delegate = ParseFromJsonString;
+# }
+#
+
+```
+
 
 ## Check Traits
 
