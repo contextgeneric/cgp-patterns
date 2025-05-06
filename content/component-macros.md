@@ -13,6 +13,9 @@ Syntactically, all CGP components follow the same pattern. The pattern is
 roughly as follows:
 
 ```rust,ignore
+// Component name
+pub struct ActionPerformerComponent;
+
 // Consumer trait
 pub trait CanPerformAction<GenericA, GenericB, ...>:
     ConstraintA + ConstraintB + ...
@@ -26,7 +29,8 @@ pub trait CanPerformAction<GenericA, GenericB, ...>:
 }
 
 // Provider trait
-pub trait ActionPerformer<Context, GenericA, GenericB, ...>
+pub trait ActionPerformer<Context, GenericA, GenericB, ...>:
+    IsProviderFor<ActionPerformerComponent, Context, (GenericA, GenericB, ...)>
 where
     Context: ConstraintA + ConstraintB + ...,
 {
@@ -37,9 +41,6 @@ where
         ...
     ) -> Output;
 }
-
-// Component name
-pub struct ActionPerformerComponent;
 
 // Blanket implementation for consumer trait
 impl<Context, GenericA, GenericB, ...>
@@ -64,7 +65,8 @@ impl<Context, Component, GenericA, GenericB, ...>
     for Component
 where
     Context: ConstraintA + ConstraintB + ...,
-    Component: DelegateComponent<ActionPerformerComponent>,
+    Component: DelegateComponent<ActionPerformerComponent>
+        + IsProviderFor<ActionPerformerComponent, Context, (GenericA, GenericB, ...)>,
     Component::Delegate: ActionPerformer<Context, GenericA, GenericB, ...>,
 {
     fn perform_action(
@@ -78,7 +80,7 @@ where
 }
 ```
 
-## `cgp_component` Macro
+## `#[cgp_component]` Macro
 
 With the repetitive pattern, it makes sense that we should be able to
 just define the consumer trait, and make use of Rust macros to generate
@@ -124,10 +126,7 @@ be omited. When omitted, the `context` field will default to `Context`,
 and the `name` field will default to `{provider}Component`.
 So the same example above could be simplified to:
 
-
 ```rust,ignore
-use cgp::prelude::*;
-
 #[cgp_component {
     provider: ActionPerformer,
 }]
@@ -143,8 +142,24 @@ pub trait CanPerformAction<GenericA, GenericB, ...>:
 }
 ```
 
+When only the provider name is specified, we can also omit the `key: value` syntax, and specify only the provider name:
 
-## `delegate_components` Macro
+```rust,ignore
+#[cgp_component(ActionPerformer)]
+pub trait CanPerformAction<GenericA, GenericB, ...>:
+    ConstraintA + ConstraintB + ...
+{
+    fn perform_action(
+        &self,
+        arg_a: ArgA,
+        arg_b: ArgB,
+        ...
+    ) -> Output;
+}
+```
+
+
+## `delegate_components!` Macro
 
 In addition to the `cgp_component` macro, `cgp` also provides the
 `delegate_components!` macro that can be used to automatically implement
@@ -175,28 +190,176 @@ impl DelegateComponent<ComponentA> for TargetProvider {
     type Delegate = ProviderA;
 }
 
+impl<Context, Params> IsProviderFor<ComponentA, Context, Params>
+    for TargetProvider
+where
+    ProviderA: IsProviderFor<ComponentA, Context, Params>,
+{
+}
+
 impl DelegateComponent<ComponentB> for TargetProvider {
     type Delegate = ProviderB;
+}
+
+impl<Context, Params> IsProviderFor<ComponentB, Context, Params>
+    for TargetProvider
+where
+    ProviderB: IsProviderFor<ComponentB, Context, Params>,
+{
 }
 
 impl DelegateComponent<ComponentC1> for TargetProvider {
     type Delegate = ProviderC;
 }
 
+impl<Context, Params> IsProviderFor<ComponentC1, Context, Params>
+    for TargetProvider
+where
+    ProviderC: IsProviderFor<ComponentC1, Context, Params>,
+{
+}
+
 impl DelegateComponent<ComponentC2> for TargetProvider {
     type Delegate = ProviderC;
+}
+
+impl<Context, Params> IsProviderFor<ComponentC2, Context, Params>
+    for TargetProvider
+where
+    ProviderC: IsProviderFor<ComponentC2, Context, Params>,
+{
 }
 ```
 
 The `delegate_components!` macro accepts an argument to an existing type,
 `TargetProvider`, which is expected to be defined outside of the macro.
 It is followed by an open brace, and contain entries that look like
-key-value pairs. For a key-value pair `ComponentA: ProviderA`, the type
-`ComponentA` is used as the component name, and `ProviderA` refers to
-the provider implementation.
+key-value pairs.
+
+For a key-value pair `ComponentA: ProviderA`, the type `ComponentA` is used as the component name, and `ProviderA` refers to the provider implementation.
 When multiple keys map to the same value, i.e. multiple components are
 delegated to the same provider implementation, the array syntax can be
 used to further simplify the mapping.
+
+Instead of defining the provider struct on our own, we can also instruct `delegate_components!` to also define the provider struct for us, by adding a `new` keyword in front:
+
+```rust,ignore
+delegate_components! {
+    new TargetProvider {
+        ComponentA: ProviderA,
+        ComponentB: ProviderB,
+        [
+            ComponentC1,
+            ComponentC2,
+            ...
+        ]: ProviderC,
+    }
+}
+```
+
+## `#[cgp_provider]` Macro
+
+When implementing a provider, the `#[cgp_provider]` macro needs to be used to automatically implement the `IsProviderFor` implementation, with all constraints within the `impl` block copied over.
+
+Given a provider trait implementation with the pattern:
+
+```rust,ignore
+pub struct Provider;
+
+#[cgp_provider(ActionPerformerComponent)]
+impl<Context, GenericA, GenericB, ...>
+    ActionPerformer<Context, GenericA, GenericB, ...>
+    for Provider
+where
+    Context: ConstraintA + ConstraintB + ...,
+    Context::Assoc: ConstraintC + ConstraintD + ...,
+{ ... }
+```
+
+`#[cgp_provider]` would generate an `IsProviderFor` implementation that follows the pattern:
+
+```rust,ignore
+impl<Context, GenericA, GenericB, ...>
+    IsProviderFor<ActionPerformerComponent, Context, GenericA, GenericB, ...>
+    for Provider
+where
+    Context: ConstraintA + ConstraintB + ...,
+    Context::Assoc: ConstraintC + ConstraintD + ...,
+{ }
+```
+
+If the component name for the provider trait follows the format `"{ProviderTraitName}Component"`, then the component name can be omitted in the attribute argument for `#[cgp_provider]`, simplifying the code to:
+
+```rust,ignore
+pub struct Provider;
+
+#[cgp_provider]
+impl<Context, GenericA, GenericB, ...>
+    ActionPerformer<Context, GenericA, GenericB, ...>
+    for Provider
+where
+    Context: ConstraintA + ConstraintB + ...,
+    Context::Assoc: ConstraintC + ConstraintD + ...,
+{ ... }
+```
+
+Note, however, that the generated code would require the component type `"{ProviderTraitName}Component"` to be imported into scope. If the component name is not specified, IDEs like Rust Analyzer may not provide quick fix for auto importing the component. As a result, it may still be preferrable to include the component name attribute, especially when writing new code.
+
+There is also a variant of the macro, `#[cgp_new_provider]`, which would also automatically define the struct for the provider. With that, the code can be defined with the `struct` definition omitted:
+
+```rust,ignore
+#[cgp_new_provider]
+impl<Context, GenericA, GenericB, ...>
+    ActionPerformer<Context, GenericA, GenericB, ...>
+    for Provider
+where
+    Context: ConstraintA + ConstraintB + ...,
+    Context::Assoc: ConstraintC + ConstraintD + ...,
+{ ... }
+```
+
+`#[cgp_new_provider]` is mainly useful in cases where a provider only implements one provider trait. When definining a provider with multiple provider trait implementations, it may be more clear to define the provider struct explicitly, or only use `#[cgp_new_provider]` for the first `impl` block of the provider.
+
+## `check_components!` Macro
+
+To help with debugging CGP code, the `check_components!` macro is provided to allow us to quickly write compile-time tests on the component wiring.
+
+Given the following code pattern:
+
+```rust,ignore
+check_components! {
+    CanUseContext for Context {
+        ComponentA,
+        ComponentB,
+        ComponentC: GenericA,
+        [
+            ComponentD,
+            ComponentE,
+        ]: [
+            (GenericB1, GenericB2, ...),
+            (GenericC1, GenericC2, ...),
+        ],
+    }
+}
+```
+
+The following check trait would be generated:
+
+```rust,ignore
+pub trait CanUseContext:
+    CanUseComponent<ComponentA>
+    + CanUseComponent<ComponentB>
+    + CanUseComponent<ComponentC, GenericA>
+    + CanUseComponent<ComponentD, (GenericB1, GenericB2, ...)>
+    + CanUseComponent<ComponentD, (GenericC1, GenericC2, ...)>
+    + CanUseComponent<ComponentE, (GenericB1, GenericB2, ...)>
+    + CanUseComponent<ComponentE, (GenericC1, GenericC2, ...)>
+{}
+
+impl CanUseContext for Context {}
+```
+
+The `check_components!` macro allows the use of array syntax at either the key or value position, when there are multiple components that share the same set of generic parameters.
 
 ## Example Use
 
@@ -219,29 +382,19 @@ use serde::{Serialize, Deserialize};
 
 // Component definitions
 
-#[cgp_component {
-    name: StringFormatterComponent,
-    provider: StringFormatter,
-    context: Context,
-}]
+#[cgp_component(StringFormatter)]
 pub trait CanFormatToString {
     fn format_to_string(&self) -> Result<String, Error>;
 }
 
-#[cgp_component {
-    name: StringParserComponent,
-    provider: StringParser,
-    context: Context,
-}]
+#[cgp_component(StringParser)]
 pub trait CanParseFromString: Sized {
     fn parse_from_string(raw: &str) -> Result<Self, Error>;
 }
 
 // Provider implementations
 
-pub struct FormatAsJsonString;
-
-#[cgp_provider(StringFormatterComponent)]
+#[cgp_new_provider]
 impl<Context> StringFormatter<Context> for FormatAsJsonString
 where
     Context: Serialize,
@@ -251,9 +404,7 @@ where
     }
 }
 
-pub struct ParseFromJsonString;
-
-#[cgp_provider(StringParserComponent)]
+#[cgp_new_provider]
 impl<Context> StringParser<Context> for ParseFromJsonString
 where
     Context: for<'a> Deserialize<'a>,
@@ -279,31 +430,29 @@ impl HasProvider for Person {
 
 delegate_components! {
     PersonComponents {
-        StringFormatterComponent: FormatAsJsonString,
-        StringParserComponent: ParseFromJsonString,
+        StringFormatterComponent:
+            FormatAsJsonString,
+        StringParserComponent:
+            ParseFromJsonString,
     }
 }
 
-# let person = Person { first_name: "John".into(), last_name: "Smith".into() };
-# let person_str = r#"{"first_name":"John","last_name":"Smith"}"#;
-#
-# assert_eq!(
-#     person.format_to_string().unwrap(),
-#     person_str
-# );
-#
-# assert_eq!(
-#     Person::parse_from_string(person_str).unwrap(),
-#     person
-# );
+check_components! {
+    CanUsePerson for Person {
+        StringFormatterComponent,
+        StringParserComponent,
+    }
+}
 ```
 
 As we can see, the new code is significantly simpler and more readable than before.
-Using `cgp_component`, we no longer need to explicitly define the provider
-traits `StringFormatter` and `StringParser`, and the blanket implementations
-can be omitted. We also make use of `delegate_components!` on `PersonComponents`
-to delegate `StringFormatterComponent` to `FormatAsJsonString`, and
-`StringParserComponent` to `ParseFromJsonString`.
+Using `#[cgp_component]`, we no longer need to explicitly define the provider traits `StringFormatter` and `StringParser`, and the blanket implementations can be omitted.
+
+With `#[cgp_new_provider]`, the `IsProviderFor` implementations for `FormatAsJsonString` and `ParseFromJsonString` are automatically implemented, together with the struct definitions.
+
+We also make use of `delegate_components!` on `PersonComponents` to delegate `StringFormatterComponent` to `FormatAsJsonString`, and `StringParserComponent` to `ParseFromJsonString`.
+
+Finally, the `check_components!` macro helps us check that we can in fact use `StringFormatterComponent` and `StringParserComponent` with the `Person` context.
 
 ## CGP Macros as Language Extension
 
