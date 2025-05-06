@@ -483,6 +483,21 @@ directly requires `FormatAsJsonString` to also implement `IsProviderFor` with th
 By doing so, we resurface the constraints to Rust, so that it would recursively look into the
 `IsProviderFor` trait bounds, and print out any unsatisfied constraints in the error messages.
 
+At this point, you may wonder why not link the provider trait directly within the delegated implementation of `IsProviderFor`, such as:
+
+```rust,ignore
+impl<Context> IsProviderFor<StringFormatterComponent, Context>
+   for PersonComponents
+where
+    FormatAsJsonString: StringFormatter<Context>,
+{
+}
+```
+
+The main reason to _not_ do this is that it requires direct access to the provider trait, which is not as simple dealing with simple types. Furthermore, the provider trait may contain additional where clauses, which would also need to be propagated explicitly.
+
+By making use of `IsProviderFor`, we are essentially "erasing" everything at the trait level, and use a single trait to represent all other provider traits. After all, the only thing that we are interested here is to propagate the constraints for the purpose of showing better error messages.
+
 ## Check Traits
 
 Now that we have the wirings for `IsProviderFor` in place, we can implement _check traits_ to check
@@ -553,8 +568,6 @@ note: required by a bound in `CanUsePersonComponents`
 ```
 
 As we can see, the use of `IsProviderFor` helps make it possible for us to debug our CGP programs again.
-This significantly improves the developer experience for CGP, which was significantly harder to debug
-prior to the introduction of this technique in v0.4.0.
 
 ## `CanUseComponent` Trait
 
@@ -613,4 +626,202 @@ error[E0277]: the trait bound `Person: CanUseComponent<StringFormatterComponent>
 164 | impl CanUsePerson for Person {}
     |                       ^^^^^^ the trait `Serialize` is not implemented for `Person`
 ...
+```
+
+## Limitations
+
+The use of `IsProviderFor` significantly improves the developer experience for CGP, which was significantly harder
+to debug prior to the introduction of this technique in v0.4.0.
+
+At this point, you might be concerned of the additional boilerplate required to implement and propagate the constraints for `IsProviderFor`. However, as we will see in the [next chapter](./component-macros.md), the CGP macros will automate the bulk of the implementation of `IsProviderFor`, and only require lightweight attribute macros to be applied to enable the code generation.
+
+It is worth noting that the `IsProviderFor` trait is introduced as a workaround to improve the error messages of CGP code in Rust. Hypothetically, if Rust could provide better support of showing the relevant error messages, we could entirely remove the use of `IsProviderFor` in future versions of CGP.
+
+On the other hand, the use of `IsProviderFor` can serve as a great showcase to the Rust compiler team on what error messages should have been shown by default, and make it easier to evaluate what should be the official fix in the Rust compiler.
+
+That said, the error messages shown via `IsProviderFor` can sometimes be too verbose, especially when an application contains many providers with deeply nested dependencies. The reason is that any unsatisfied constraint from deeply nested dependencies can propagate all the way up through chains of `IsProviderFor` implementations. Although this can help us pinpoint the root cause, it could generate too much noise when showing all errors from the intermediary layers.
+
+When encountering heap of error messages generated from `IsProviderFor`, a useful tip is that the relevant error message may be hiding near the bottom. So it may be useful to read from the bottom up instead of top down.
+
+## Interactive Debugging with Argus
+
+A potential improvement that we are currently exploring is to make use of [Argus](https://cel.cs.brown.edu/paper/an-interactive-debugger-for-rust-trait-errors/) to help navigate error messages generated from CGP code. Argus provides an interactive debugger for trait-related errors, which may be well suited to be used for debugging CGP code.
+
+We will add further details in the future to share potential integration with Argus. For now, interested readers are encouraged to check out the project, and perhaps make contribution to make such integration possible.
+
+## Conclusion
+
+In this chapter, we have learned how CGP makes use of the `IsProviderFor` trait to help show relevant error messages when encountering unsatisfied constraints. In the next chapter, we will walk through how to automate the generation of all the relevant boilerplates that we have learned so far, and write succint CGP code using macros.
+
+We will show the full example that we have walked through earlier, with the addition of `IsProviderFor` into the code:
+
+```rust,compile_fail
+# extern crate anyhow;
+# extern crate serde;
+# extern crate serde_json;
+#
+use anyhow::Error;
+use serde::{Deserialize, Serialize};
+
+pub trait HasProvider {
+    type Provider;
+}
+
+pub trait IsProviderFor<Component, Context, Params = ()> {}
+
+pub trait DelegateComponent<Name> {
+    type Delegate;
+}
+
+pub trait CanUseComponent<Component, Params = ()> {}
+
+impl<Context, Component, Params> CanUseComponent<Component, Params> for Context
+where
+    Context: HasProvider,
+    Context::Provider: IsProviderFor<Component, Context, Params>,
+{
+}
+
+pub struct StringFormatterComponent;
+
+pub struct StringParserComponent;
+
+pub trait CanFormatToString {
+    fn format_to_string(&self) -> Result<String, Error>;
+}
+
+pub trait CanParseFromString: Sized {
+    fn parse_from_string(raw: &str) -> Result<Self, Error>;
+}
+
+pub trait StringFormatter<Context>:
+    IsProviderFor<StringFormatterComponent, Context>
+{
+    fn format_to_string(context: &Context) -> Result<String, Error>;
+}
+
+pub trait StringParser<Context>:
+    IsProviderFor<StringParserComponent, Context>
+{
+    fn parse_from_string(raw: &str) -> Result<Context, Error>;
+}
+
+impl<Context> CanFormatToString for Context
+where
+    Context: HasProvider,
+    Context::Provider: StringFormatter<Context>,
+{
+    fn format_to_string(&self) -> Result<String, Error> {
+        Context::Provider::format_to_string(self)
+    }
+}
+
+impl<Context> CanParseFromString for Context
+where
+    Context: HasProvider,
+    Context::Provider: StringParser<Context>,
+{
+    fn parse_from_string(raw: &str) -> Result<Context, Error> {
+        Context::Provider::parse_from_string(raw)
+    }
+}
+
+impl<Context, Component> StringFormatter<Context> for Component
+where
+    Component: DelegateComponent<StringFormatterComponent>
+        + IsProviderFor<StringFormatterComponent, Context>,
+    Component::Delegate: StringFormatter<Context>,
+{
+    fn format_to_string(context: &Context) -> Result<String, Error> {
+        Component::Delegate::format_to_string(context)
+    }
+}
+
+impl<Context, Component> StringParser<Context> for Component
+where
+    Component: DelegateComponent<StringParserComponent>
+        + IsProviderFor<StringParserComponent, Context>,
+    Component::Delegate: StringParser<Context>,
+{
+    fn parse_from_string(raw: &str) -> Result<Context, Error> {
+        Component::Delegate::parse_from_string(raw)
+    }
+}
+
+pub struct FormatAsJsonString;
+
+impl<Context> StringFormatter<Context> for FormatAsJsonString
+where
+    Context: Serialize,
+{
+    fn format_to_string(context: &Context) -> Result<String, Error> {
+        Ok(serde_json::to_string(context)?)
+    }
+}
+
+impl<Context> IsProviderFor<StringFormatterComponent, Context>
+    for FormatAsJsonString
+where
+    Context: Serialize,
+{
+}
+
+pub struct ParseFromJsonString;
+
+impl<Context> StringParser<Context> for ParseFromJsonString
+where
+    Context: for<'a> Deserialize<'a>,
+{
+    fn parse_from_string(json_str: &str) -> Result<Context, Error> {
+        Ok(serde_json::from_str(json_str)?)
+    }
+}
+
+impl<Context> IsProviderFor<StringParserComponent, Context>
+    for ParseFromJsonString
+where
+    Context: for<'a> Deserialize<'a>,
+{
+}
+
+// Note: We pretend to forgot to derive Serialize here
+#[derive(Deserialize, Debug, Eq, PartialEq)]
+pub struct Person {
+    pub first_name: String,
+    pub last_name: String,
+}
+
+pub struct PersonComponents;
+
+impl HasProvider for Person {
+    type Provider = PersonComponents;
+}
+
+impl DelegateComponent<StringFormatterComponent> for PersonComponents {
+    type Delegate = FormatAsJsonString;
+}
+
+impl<Context> IsProviderFor<StringFormatterComponent, Context>
+    for PersonComponents
+where
+    FormatAsJsonString: IsProviderFor<StringFormatterComponent, Context>,
+{
+}
+
+impl DelegateComponent<StringParserComponent> for PersonComponents {
+    type Delegate = ParseFromJsonString;
+}
+
+impl<Context> IsProviderFor<StringParserComponent, Context> for PersonComponents where
+    ParseFromJsonString: IsProviderFor<StringParserComponent, Context>
+{
+}
+
+pub trait CanUsePerson:
+    CanUseComponent<StringFormatterComponent>
+    + CanUseComponent<StringParserComponent>
+{
+}
+
+impl CanUsePerson for Person {}
 ```
