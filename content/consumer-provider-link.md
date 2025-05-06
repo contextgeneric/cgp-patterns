@@ -90,7 +90,7 @@ as follows:
 
 ```rust
 pub trait HasProvider {
-    type Components;
+    type Provider;
 }
 
 pub trait CanFormatString {
@@ -104,20 +104,20 @@ pub trait StringFormatter<Context> {
 impl<Context> CanFormatString for Context
 where
     Context: HasProvider,
-    Context::Components: StringFormatter<Context>,
+    Context::Provider: StringFormatter<Context>,
 {
     fn format_string(&self) -> String {
-        Context::Components::format_string(self)
+        Context::Provider::format_string(self)
     }
 }
 ```
 
 First of all, we define a new `HasProvider` trait that contains an associated
-type `Components`. The `Components` type would be specified by a context to
+type `Provider`. The `Provider` type would be specified by a context to
 choose a provider that it would use to forward all implementations of consumer
 traits. Following that, we add a blanket implementation for `CanFormatString`,
 which would be implemented for any `Context` that implements `HasProvider`,
-provided that `Context::Components` implements `StringFormatter<Context>`.
+provided that `Context::Provider` implements `StringFormatter<Context>`.
 
 To explain in simpler terms - if a context has a provider that implements
 a provider trait for that context, then the consumer trait for that context
@@ -151,7 +151,7 @@ let person = Person { first_name: "John".into(), last_name: "Smith".into() };
 assert_eq!(person.format_string(), "John Smith");
 #
 # pub trait HasProvider {
-#     type Components;
+#     type Provider;
 # }
 #
 # pub trait CanFormatString {
@@ -165,10 +165,10 @@ assert_eq!(person.format_string(), "John Smith");
 # impl<Context> CanFormatString for Context
 # where
 #     Context: HasProvider,
-#     Context::Components: StringFormatter<Context>,
+#     Context::Provider: StringFormatter<Context>,
 # {
 #     fn format_string(&self) -> String {
-#         Context::Components::format_string(self)
+#         Context::Provider::format_string(self)
 #     }
 # }
 #
@@ -189,9 +189,9 @@ implementing `CanFormatString` directly, since we only need to specify the provi
 type without any function definition.
 
 At the moment, because the `Person` context only implements one consumer trait, we
-can set `FormatStringWithDisplay` directly as `Person::Components`. However, if there
+can set `FormatStringWithDisplay` directly as `Person::Provider`. However, if there
 are other consumer traits that we would like to use with `Person`, we would need to
-define `Person::Components` with a separate provider that implements multiple provider
+define `Person::Provider` with a separate provider that implements multiple provider
 traits. This will be covered in the next chapter, which we would talk about how to
 link multiple providers of different provider traits together.
 

@@ -47,7 +47,7 @@ Next, we also define the provider traits as follows:
 # use anyhow::Error;
 #
 # pub trait HasProvider {
-#     type Components;
+#     type Provider;
 # }
 #
 # pub trait CanFormatToString {
@@ -69,20 +69,20 @@ pub trait StringParser<Context> {
 impl<Context> CanFormatToString for Context
 where
     Context: HasProvider,
-    Context::Components: StringFormatter<Context>,
+    Context::Provider: StringFormatter<Context>,
 {
     fn format_to_string(&self) -> Result<String, Error> {
-        Context::Components::format_to_string(self)
+        Context::Provider::format_to_string(self)
     }
 }
 
 impl<Context> CanParseFromString for Context
 where
     Context: HasProvider,
-    Context::Components: StringParser<Context>,
+    Context::Provider: StringParser<Context>,
 {
     fn parse_from_string(raw: &str) -> Result<Context, Error> {
-        Context::Components::parse_from_string(raw)
+        Context::Provider::parse_from_string(raw)
     }
 }
 ```
@@ -172,7 +172,7 @@ and `StringParser` by delegating the call to the actual providers.
 # use serde::{Serialize, Deserialize};
 #
 # pub trait HasProvider {
-#     type Components;
+#     type Provider;
 # }
 #
 # pub trait CanFormatToString {
@@ -194,20 +194,20 @@ and `StringParser` by delegating the call to the actual providers.
 # impl<Context> CanFormatToString for Context
 # where
 #     Context: HasProvider,
-#     Context::Components: StringFormatter<Context>,
+#     Context::Provider: StringFormatter<Context>,
 # {
 #     fn format_to_string(&self) -> Result<String, Error> {
-#         Context::Components::format_to_string(self)
+#         Context::Provider::format_to_string(self)
 #     }
 # }
 #
 # impl<Context> CanParseFromString for Context
 # where
 #     Context: HasProvider,
-#     Context::Components: StringParser<Context>,
+#     Context::Provider: StringParser<Context>,
 # {
 #     fn parse_from_string(raw: &str) -> Result<Context, Error> {
-#         Context::Components::parse_from_string(raw)
+#         Context::Provider::parse_from_string(raw)
 #     }
 # }
 #
@@ -392,7 +392,7 @@ back to the example of implementing the concrete context `Person`.
 # use serde::{Serialize, Deserialize};
 #
 # pub trait HasProvider {
-#     type Components;
+#     type Provider;
 # }
 #
 # pub trait CanFormatToString {
@@ -414,20 +414,20 @@ back to the example of implementing the concrete context `Person`.
 # impl<Context> CanFormatToString for Context
 # where
 #     Context: HasProvider,
-#     Context::Components: StringFormatter<Context>,
+#     Context::Provider: StringFormatter<Context>,
 # {
 #     fn format_to_string(&self) -> Result<String, Error> {
-#         Context::Components::format_to_string(self)
+#         Context::Provider::format_to_string(self)
 #     }
 # }
 #
 # impl<Context> CanParseFromString for Context
 # where
 #     Context: HasProvider,
-#     Context::Components: StringParser<Context>,
+#     Context::Provider: StringParser<Context>,
 # {
 #     fn parse_from_string(raw: &str) -> Result<Context, Error> {
-#         Context::Components::parse_from_string(raw)
+#         Context::Provider::parse_from_string(raw)
 #     }
 # }
 #
@@ -580,7 +580,7 @@ which provider to use in each concrete context implementation.
 # use serde::{Serialize, Deserialize};
 #
 # pub trait HasProvider {
-#     type Components;
+#     type Provider;
 # }
 #
 # pub trait CanFormatToString {
@@ -602,20 +602,20 @@ which provider to use in each concrete context implementation.
 # impl<Context> CanFormatToString for Context
 # where
 #     Context: HasProvider,
-#     Context::Components: StringFormatter<Context>,
+#     Context::Provider: StringFormatter<Context>,
 # {
 #     fn format_to_string(&self) -> Result<String, Error> {
-#         Context::Components::format_to_string(self)
+#         Context::Provider::format_to_string(self)
 #     }
 # }
 #
 # impl<Context> CanParseFromString for Context
 # where
 #     Context: HasProvider,
-#     Context::Components: StringParser<Context>,
+#     Context::Provider: StringParser<Context>,
 # {
 #     fn parse_from_string(raw: &str) -> Result<Context, Error> {
-#         Context::Components::parse_from_string(raw)
+#         Context::Provider::parse_from_string(raw)
 #     }
 # }
 #
