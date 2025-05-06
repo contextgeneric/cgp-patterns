@@ -21,11 +21,12 @@ use core::convert::Infallible;
 use core::num::ParseIntError;
 
 use anyhow::anyhow;
-use cgp::core::error::ErrorRaiser;
+use cgp::core::error::{ErrorRaiser, ErrorRaiserComponent};
 use cgp::prelude::*;
 
 pub struct MyErrorRaiser;
 
+#[cgp_provider]
 impl<Context> ErrorRaiser<Context, anyhow::Error> for MyErrorRaiser
 where
     Context: HasErrorType<Error = anyhow::Error>,
@@ -35,6 +36,7 @@ where
     }
 }
 
+#[cgp_provider]
 impl<Context> ErrorRaiser<Context, Infallible> for MyErrorRaiser
 where
     Context: HasErrorType,
@@ -44,6 +46,7 @@ where
     }
 }
 
+#[cgp_provider]
 impl<Context> ErrorRaiser<Context, std::io::Error> for MyErrorRaiser
 where
     Context: HasErrorType<Error = anyhow::Error>,
@@ -53,6 +56,7 @@ where
     }
 }
 
+#[cgp_provider]
 impl<Context> ErrorRaiser<Context, ParseIntError> for MyErrorRaiser
 where
     Context: HasErrorType<Error = anyhow::Error>,
@@ -62,6 +66,7 @@ where
     }
 }
 
+#[cgp_provider]
 impl<Context> ErrorRaiser<Context, ErrAuthTokenHasExpired> for MyErrorRaiser
 where
     Context: HasErrorType<Error = anyhow::Error>,
@@ -71,6 +76,7 @@ where
     }
 }
 
+#[cgp_provider]
 impl<Context> ErrorRaiser<Context, String> for MyErrorRaiser
 where
     Context: HasErrorType<Error = anyhow::Error>,
@@ -80,6 +86,7 @@ where
     }
 }
 
+#[cgp_provider]
 impl<'a, Context> ErrorRaiser<Context, &'a str> for MyErrorRaiser
 where
     Context: HasErrorType<Error = anyhow::Error>,
@@ -106,11 +113,12 @@ When examining the patterns for implementing custom error raisers, we notice sim
 #
 use core::marker::PhantomData;
 
-use cgp::core::error::ErrorRaiser;
+use cgp::core::error::{ErrorRaiser, ErrorRaiserComponent};
 use cgp::prelude::*;
 
 pub struct UseDelegate<Components>(pub PhantomData<Components>);
 
+#[cgp_provider]
 impl<Context, SourceError, Components> ErrorRaiser<Context, SourceError> for UseDelegate<Components>
 where
     Context: HasErrorType,
@@ -136,7 +144,7 @@ We can better understand this by looking at a concrete example. Using `UseDelega
 # extern crate anyhow;
 #
 # use cgp::core::component::UseDelegate;
-# use cgp::core::error::ErrorRaiser;
+# use cgp::core::error::{ErrorRaiser, ErrorRaiserComponent};
 # use cgp::prelude::*;
 #
 # use core::fmt::Debug;
@@ -149,6 +157,7 @@ We can better understand this by looking at a concrete example. Using `UseDelega
 #
 # pub struct DebugAnyhowError;
 #
+# #[cgp_provider]
 # impl<Context, E> ErrorRaiser<Context, E> for DebugAnyhowError
 # where
 #     Context: HasErrorType<Error = anyhow::Error>,
@@ -159,8 +168,7 @@ We can better understand this by looking at a concrete example. Using `UseDelega
 #     }
 # }
 #
-# pub struct RaiseFrom;
-#
+# #[cgp_new_provider]
 # impl<Context, E> ErrorRaiser<Context, E> for RaiseFrom
 # where
 #     Context: HasErrorType,
@@ -171,10 +179,8 @@ We can better understand this by looking at a concrete example. Using `UseDelega
 #     }
 # }
 #
-pub struct MyErrorRaiserComponents;
-
 delegate_components! {
-    MyErrorRaiserComponents {
+    new MyErrorRaiserComponents {
         [
             std::io::Error,
             ParseIntError,
@@ -205,11 +211,11 @@ In addition to the delegation pattern, it can be useful to implement generic err
 ```rust
 # extern crate cgp;
 #
-use cgp::core::error::{CanRaiseError, ErrorRaiser};
+use cgp::prelude::*;
+use cgp::core::error::{ErrorRaiser, ErrorRaiserComponent};
 use core::fmt::Debug;
 
-pub struct DebugError;
-
+#[cgp_new_provider]
 impl<Context, SourceError> ErrorRaiser<Context, SourceError> for DebugError
 where
     Context: CanRaiseError<String>,
@@ -241,14 +247,13 @@ pub mod impls {
     use core::fmt::{Debug, Display};
 
     use anyhow::anyhow;
-    use cgp::core::error::{CanRaiseError, ErrorRaiser, ProvideErrorType};
-    use cgp::prelude::HasErrorType;
+    use cgp::core::error::{ErrorRaiser, ErrorRaiserComponent};
+    use cgp::prelude::*;
 
     #[derive(Debug)]
     pub struct ErrAuthTokenHasExpired;
 
-    pub struct ReturnError;
-
+    #[cgp_new_provider]
     impl<Context, Error> ErrorRaiser<Context, Error> for ReturnError
     where
         Context: HasErrorType<Error = Error>,
@@ -258,8 +263,7 @@ pub mod impls {
         }
     }
 
-    pub struct RaiseFrom;
-
+    #[cgp_new_provider]
     impl<Context, SourceError> ErrorRaiser<Context, SourceError> for RaiseFrom
     where
         Context: HasErrorType,
@@ -270,8 +274,7 @@ pub mod impls {
         }
     }
 
-    pub struct RaiseInfallible;
-
+    #[cgp_new_provider]
     impl<Context> ErrorRaiser<Context, Infallible> for RaiseInfallible
     where
         Context: HasErrorType,
@@ -281,8 +284,7 @@ pub mod impls {
         }
     }
 
-    pub struct DebugError;
-
+    #[cgp_new_provider]
     impl<Context, SourceError> ErrorRaiser<Context, SourceError> for DebugError
     where
         Context: CanRaiseError<String>,
@@ -293,14 +295,7 @@ pub mod impls {
         }
     }
 
-    pub struct UseAnyhow;
-
-    impl<Context> ProvideErrorType<Context> for UseAnyhow {
-        type Error = anyhow::Error;
-    }
-
-    pub struct DisplayAnyhowError;
-
+    #[cgp_new_provider]
     impl<Context, SourceError> ErrorRaiser<Context, SourceError> for DisplayAnyhowError
     where
         Context: HasErrorType<Error = anyhow::Error>,
@@ -317,24 +312,19 @@ pub mod contexts {
     use core::num::ParseIntError;
 
     use cgp::core::component::UseDelegate;
-    use cgp::core::error::{ErrorRaiserComponent, ErrorTypeComponent};
+    use cgp::core::error::{ErrorRaiserComponent, ErrorTypeProviderComponent};
     use cgp::prelude::*;
 
     use super::impls::*;
 
+    #[cgp_context]
     pub struct MyApp;
-
-    pub struct MyAppComponents;
 
     pub struct MyErrorRaiserComponents;
 
-    impl HasProvider for MyApp {
-        type Provider = MyAppComponents;
-    }
-
     delegate_components! {
         MyAppComponents {
-            ErrorTypeComponent: UseAnyhow,
+            ErrorTypeProviderComponent: UseType<anyhow::Error>,
             ErrorRaiserComponent: UseDelegate<MyErrorRaiserComponents>,
         }
     }

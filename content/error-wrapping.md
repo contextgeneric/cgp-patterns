@@ -30,24 +30,17 @@ pub mod traits {
 
     use cgp::prelude::*;
 
-    #[cgp_component {
-        name: ConfigTypeComponent,
-        provider: ProvideConfigType,
-    }]
+    #[cgp_type]
     pub trait HasConfigType {
         type Config;
     }
 
-    #[cgp_component {
-        provider: ConfigLoader,
-    }]
+    #[cgp_component(ConfigLoader)]
     pub trait CanLoadConfig: HasConfigType + HasErrorType {
         fn load_config(&self) -> Result<Self::Config, Self::Error>;
     }
 
-    #[cgp_component {
-        provider: ConfigPathGetter,
-    }]
+    #[cgp_component(ConfigPathGetter)]
     pub trait HasConfigPath {
         fn config_path(&self) -> &PathBuf;
     }
@@ -56,14 +49,13 @@ pub mod traits {
 pub mod impls {
     use std::{fs, io};
 
-    use cgp::core::error::{ErrorRaiser, ProvideErrorType};
+    use cgp::core::error::{ErrorRaiser, ErrorRaiserComponent};
     use cgp::prelude::*;
     use serde::Deserialize;
 
     use super::traits::*;
 
-    pub struct LoadJsonConfig;
-
+    #[cgp_new_provider]
     impl<Context> ConfigLoader<Context> for LoadJsonConfig
     where
         Context: HasConfigType
@@ -113,24 +105,17 @@ load its config as follows:
 #
 #     use cgp::prelude::*;
 #
-#     #[cgp_component {
-#         name: ConfigTypeComponent,
-#         provider: ProvideConfigType,
-#     }]
+#     #[cgp_type]
 #     pub trait HasConfigType {
 #         type Config;
 #     }
 #
-#     #[cgp_component {
-#         provider: ConfigLoader,
-#     }]
+#     #[cgp_component(ConfigLoader)]
 #     pub trait CanLoadConfig: HasConfigType + HasErrorType {
 #         fn load_config(&self) -> Result<Self::Config, Self::Error>;
 #     }
 #
-#     #[cgp_component {
-#         provider: ConfigPathGetter,
-#     }]
+#     #[cgp_component(ConfigPathGetter)]
 #     pub trait HasConfigPath {
 #         fn config_path(&self) -> &PathBuf;
 #     }
@@ -139,14 +124,13 @@ load its config as follows:
 # pub mod impls {
 #     use std::{fs, io};
 #
-#     use cgp::core::error::{ErrorRaiser, ProvideErrorType};
+#     use cgp::core::error::{ErrorRaiser, ErrorRaiserComponent};
 #     use cgp::prelude::*;
 #     use serde::Deserialize;
 #
 #     use super::traits::*;
 #
-#     pub struct LoadJsonConfig;
-#
+#     #[cgp_new_provider]
 #     impl<Context> ConfigLoader<Context> for LoadJsonConfig
 #     where
 #         Context: HasConfigType
@@ -166,14 +150,7 @@ load its config as follows:
 #         }
 #     }
 #
-#     pub struct UseAnyhowError;
-#
-#     impl<Context> ProvideErrorType<Context> for UseAnyhowError {
-#         type Error = anyhow::Error;
-#     }
-#
-#     pub struct RaiseFrom;
-#
+#     #[cgp_new_provider]
 #     impl<Context, SourceError> ErrorRaiser<Context, SourceError> for RaiseFrom
 #     where
 #         Context: HasErrorType,
@@ -190,13 +167,14 @@ pub mod contexts {
     use std::path::PathBuf;
 
     use cgp::core::component::UseDelegate;
-    use cgp::core::error::{ErrorRaiserComponent, ErrorTypeComponent};
+    use cgp::core::error::{ErrorRaiserComponent, ErrorTypeProviderComponent};
     use cgp::prelude::*;
     use serde::Deserialize;
 
     use super::impls::*;
     use super::traits::*;
 
+    #[cgp_context]
     pub struct App {
         pub config_path: PathBuf,
     }
@@ -206,24 +184,16 @@ pub mod contexts {
         pub api_secret: String,
     }
 
-    pub struct AppComponents;
-
-    pub struct RaiseAppErrors;
-
-    impl HasProvider for App {
-        type Provider = AppComponents;
-    }
-
     delegate_components! {
         AppComponents {
-            ErrorTypeComponent: UseAnyhowError,
+            ErrorTypeProviderComponent: UseType<anyhow::Error>,
             ErrorRaiserComponent: UseDelegate<RaiseAppErrors>,
             ConfigLoaderComponent: LoadJsonConfig,
         }
     }
 
     delegate_components! {
-        RaiseAppErrors {
+        new RaiseAppErrors {
             [
                 io::Error,
                 serde_json::Error,
@@ -232,10 +202,12 @@ pub mod contexts {
         }
     }
 
-    impl ProvideConfigType<App> for AppComponents {
+    #[cgp_provider]
+    impl ConfigTypeProvider<App> for AppComponents {
         type Config = AppConfig;
     }
 
+    #[cgp_provider]
     impl ConfigPathGetter<App> for AppComponents {
         fn config_path(app: &App) -> &PathBuf {
             &app.config_path
@@ -259,7 +231,7 @@ and we use `UseDelegate<RaiseAppErrors>` to implement the error raiser.
 Inside of `RaiseAppErrors`, we make use of `RaiseFrom` to convert `std::io::Error`
 and `serde_json::Error` to `anyhow::Error` using the `From` instance.
 
-We also provide context-specific implementations of `ProvideConfigType` and
+We also provide context-specific implementations of `ConfigTypeProvider` and
 `ConfigPathGetter` for the `App` context. Following that, we define a check
 trait `CanUseApp` to check that the wiring is done correctly and that `App`
 implements `CanLoadConfig`.
@@ -300,9 +272,7 @@ details. We can do that by introduce an _error wrapper_ trait as follows:
 #
 # use cgp::prelude::*;
 #
-#[cgp_component {
-    provider: ErrorWrapper,
-}]
+#[cgp_component(ErrorWrapper)]
 pub trait CanWrapError<Detail>: HasErrorType {
     fn wrap_error(error: Self::Error, detail: Detail) -> Self::Error;
 }
@@ -328,10 +298,7 @@ To see how `CanWrapError` works in practice, we can redefine `LoadJsonConfig` to
 # use cgp::prelude::*;
 # use serde::Deserialize;
 #
-# #[cgp_component {
-#     name: ConfigTypeComponent,
-#     provider: ProvideConfigType,
-# }]
+# #[cgp_type]
 # pub trait HasConfigType {
 #     type Config;
 # }
@@ -350,8 +317,7 @@ To see how `CanWrapError` works in practice, we can redefine `LoadJsonConfig` to
 #     fn config_path(&self) -> &PathBuf;
 # }
 #
-pub struct LoadJsonConfig;
-
+#[cgp_new_provider]
 impl<Context> ConfigLoader<Context> for LoadJsonConfig
 where
     Context: HasConfigType
@@ -423,10 +389,9 @@ So we can implement an error wrapper provider for `anyhow::Error` as follows:
 # use core::fmt::Display;
 #
 # use cgp::prelude::*;
-# use cgp::core::error::ErrorWrapper;
+# use cgp::core::error::{ErrorWrapper, ErrorWrapperComponent};
 #
-pub struct WrapWithAnyhowContext;
-
+#[cgp_new_provider]
 impl<Context, Detail> ErrorWrapper<Context, Detail> for WrapWithAnyhowContext
 where
     Context: HasErrorType<Error = anyhow::Error>,
@@ -490,8 +455,8 @@ type as follows:
 # use serde::Deserialize;
 #
 # #[cgp_component {
-#     name: ConfigTypeComponent,
-#     provider: ProvideConfigType,
+#     name: ConfigTypeProviderComponent,
+#     provider: ConfigTypeProvider,
 # }]
 # pub trait HasConfigType {
 #     type Config;
@@ -511,8 +476,6 @@ type as follows:
 #     fn config_path(&self) -> &PathBuf;
 # }
 #
-pub struct LoadJsonConfig;
-
 pub struct ErrLoadJsonConfig<'a, Context> {
     pub context: &'a Context,
     pub config_path: &'a PathBuf,
@@ -524,6 +487,7 @@ pub enum LoadJsonConfigAction {
     ParseFile,
 }
 
+#[cgp_new_provider]
 impl<Context> ConfigLoader<Context> for LoadJsonConfig
 where
     Context: HasConfigType
@@ -607,10 +571,9 @@ as follows:
 # use core::fmt::Debug;
 #
 # use cgp::prelude::*;
-# use cgp::core::error::ErrorWrapper;
+# use cgp::core::error::{ErrorWrapper, ErrorWrapperComponent};
 #
-pub struct WrapWithAnyhowDebug;
-
+#[cgp_new_provider]
 impl<Context, Detail> ErrorWrapper<Context, Detail> for WrapWithAnyhowDebug
 where
     Context: HasErrorType<Error = anyhow::Error>,
@@ -644,24 +607,17 @@ pub mod traits {
     use cgp::core::component::UseDelegate;
     use cgp::prelude::*;
 
-    #[cgp_component {
-        name: ConfigTypeComponent,
-        provider: ProvideConfigType,
-    }]
+    #[cgp_type]
     pub trait HasConfigType {
         type Config;
     }
 
-    #[cgp_component {
-        provider: ConfigLoader,
-    }]
+    #[cgp_component(ConfigLoader)]
     pub trait CanLoadConfig: HasConfigType + HasErrorType {
         fn load_config(&self) -> Result<Self::Config, Self::Error>;
     }
 
-    #[cgp_component {
-        provider: ConfigPathGetter,
-    }]
+    #[cgp_component(ConfigPathGetter)]
     pub trait HasConfigPath {
         fn config_path(&self) -> &PathBuf;
     }
@@ -672,13 +628,11 @@ pub mod impls {
     use std::path::PathBuf;
     use std::{fs, io};
 
-    use cgp::core::error::{ErrorRaiser, ErrorWrapper,ProvideErrorType};
+    use cgp::core::error::{ErrorRaiser, ErrorWrapper, ErrorRaiserComponent, ErrorWrapperComponent};
     use cgp::prelude::*;
     use serde::Deserialize;
 
     use super::traits::*;
-
-    pub struct LoadJsonConfig;
 
     pub struct ErrLoadJsonConfig<'a, Context> {
         pub context: &'a Context,
@@ -691,6 +645,7 @@ pub mod impls {
         ParseFile,
     }
 
+    #[cgp_new_provider]
     impl<Context> ConfigLoader<Context> for LoadJsonConfig
     where
         Context: HasConfigType
@@ -750,14 +705,7 @@ pub mod impls {
         }
     }
 
-    pub struct UseAnyhowError;
-
-    impl<Context> ProvideErrorType<Context> for UseAnyhowError {
-        type Error = anyhow::Error;
-    }
-
-    pub struct RaiseFrom;
-
+    #[cgp_new_provider]
     impl<Context, SourceError> ErrorRaiser<Context, SourceError> for RaiseFrom
     where
         Context: HasErrorType,
@@ -768,8 +716,7 @@ pub mod impls {
         }
     }
 
-    pub struct WrapWithAnyhowDebug;
-
+    #[cgp_new_provider]
     impl<Context, Detail> ErrorWrapper<Context, Detail> for WrapWithAnyhowDebug
     where
         Context: HasErrorType<Error = anyhow::Error>,
@@ -786,13 +733,14 @@ pub mod contexts {
     use std::path::PathBuf;
 
     use cgp::core::component::UseDelegate;
-    use cgp::core::error::{ErrorRaiserComponent, ErrorWrapperComponent, ErrorTypeComponent};
+    use cgp::core::error::{ErrorRaiserComponent, ErrorWrapperComponent, ErrorTypeProviderComponent};
     use cgp::prelude::*;
     use serde::Deserialize;
 
     use super::impls::*;
     use super::traits::*;
 
+    #[cgp_context]
     pub struct App {
         pub config_path: PathBuf,
     }
@@ -802,17 +750,11 @@ pub mod contexts {
         pub secret: String,
     }
 
-    pub struct AppComponents;
-
     pub struct RaiseAppErrors;
-
-    impl HasProvider for App {
-        type Provider = AppComponents;
-    }
 
     delegate_components! {
         AppComponents {
-            ErrorTypeComponent: UseAnyhowError,
+            ErrorTypeProviderComponent: UseType<anyhow::Error>,
             ErrorRaiserComponent: UseDelegate<RaiseAppErrors>,
             ErrorWrapperComponent: WrapWithAnyhowDebug,
             ConfigLoaderComponent: LoadJsonConfig,
@@ -829,10 +771,12 @@ pub mod contexts {
         }
     }
 
-    impl ProvideConfigType<App> for AppComponents {
+    #[cgp_provider]
+    impl ConfigTypeProvider<App> for AppComponents {
         type Config = AppConfig;
     }
 
+    #[cgp_provider]
     impl ConfigPathGetter<App> for AppComponents {
         fn config_path(app: &App) -> &PathBuf {
             &app.config_path
@@ -858,10 +802,11 @@ we can also make use of the `UseDelegate` pattern to implement delegated error w
 # use core::marker::PhantomData;
 #
 # use cgp::prelude::*;
-# use cgp::core::error::ErrorWrapper;
+# use cgp::core::error::{ErrorWrapper, ErrorWrapperComponent};
 #
 # pub struct UseDelegate<Components>(pub PhantomData<Components>);
 #
+#[cgp_provider]
 impl<Context, Detail, Components> ErrorWrapper<Context, Detail> for UseDelegate<Components>
 where
     Context: HasErrorType,
@@ -892,10 +837,7 @@ to different error wrappers, similar to how we dispatch the error raisers based 
 #     use cgp::core::error::ErrorWrapper;
 #     use cgp::prelude::*;
 #
-#     #[cgp_component {
-#         name: ConfigTypeComponent,
-#         provider: ProvideConfigType,
-#     }]
+#     #[cgp_type]
 #     pub trait HasConfigType {
 #         type Config;
 #     }
@@ -920,13 +862,11 @@ to different error wrappers, similar to how we dispatch the error raisers based 
 #     use std::path::PathBuf;
 #     use std::{fs, io};
 #
-#     use cgp::core::error::{ErrorRaiser, ErrorWrapper, ProvideErrorType};
+#     use cgp::core::error::{ErrorRaiser, ErrorWrapper, ErrorRaiserComponent, ErrorWrapperComponent};
 #     use cgp::prelude::*;
 #     use serde::Deserialize;
 #
 #     use super::traits::*;
-#
-#     pub struct LoadJsonConfig;
 #
 #     pub struct ErrLoadJsonConfig<'a, Context> {
 #         pub context: &'a Context,
@@ -939,6 +879,7 @@ to different error wrappers, similar to how we dispatch the error raisers based 
 #         ParseFile,
 #     }
 #
+#     #[cgp_new_provider]
 #     impl<Context> ConfigLoader<Context> for LoadJsonConfig
 #     where
 #         Context: HasConfigType
@@ -998,14 +939,7 @@ to different error wrappers, similar to how we dispatch the error raisers based 
 #         }
 #     }
 #
-#     pub struct UseAnyhowError;
-#
-#     impl<Context> ProvideErrorType<Context> for UseAnyhowError {
-#         type Error = anyhow::Error;
-#     }
-#
-#     pub struct RaiseFrom;
-#
+#     #[cgp_new_provider]
 #     impl<Context, SourceError> ErrorRaiser<Context, SourceError> for RaiseFrom
 #     where
 #         Context: HasErrorType,
@@ -1016,8 +950,7 @@ to different error wrappers, similar to how we dispatch the error raisers based 
 #         }
 #     }
 #
-#     pub struct WrapWithAnyhowContext;
-#
+#     #[cgp_new_provider]
 #     impl<Context, Detail> ErrorWrapper<Context, Detail> for WrapWithAnyhowContext
 #     where
 #         Context: HasErrorType<Error = anyhow::Error>,
@@ -1028,8 +961,7 @@ to different error wrappers, similar to how we dispatch the error raisers based 
 #         }
 #     }
 #
-#     pub struct WrapWithAnyhowDebug;
-#
+#     #[cgp_new_provider]
 #     impl<Context, Detail> ErrorWrapper<Context, Detail> for WrapWithAnyhowDebug
 #     where
 #         Context: HasErrorType<Error = anyhow::Error>,
@@ -1046,13 +978,14 @@ to different error wrappers, similar to how we dispatch the error raisers based 
 #     use std::path::PathBuf;
 #
 #     use cgp::core::component::UseDelegate;
-#     use cgp::core::error::{ErrorRaiserComponent, ErrorWrapperComponent, ErrorTypeComponent};
+#     use cgp::core::error::{ErrorRaiserComponent, ErrorWrapperComponent, ErrorTypeProviderComponent};
 #     use cgp::prelude::*;
 #     use serde::Deserialize;
 #
 #     use super::impls::*;
 #     use super::traits::*;
 #
+#[cgp_context]
 pub struct App {
     pub config_path: PathBuf,
 }
@@ -1062,19 +995,13 @@ pub struct AppConfig {
     pub secret: String,
 }
 
-pub struct AppComponents;
-
 pub struct RaiseAppErrors;
 
 pub struct WrapAppErrors;
 
-impl HasProvider for App {
-    type Provider = AppComponents;
-}
-
 delegate_components! {
     AppComponents {
-        ErrorTypeComponent: UseAnyhowError,
+        ErrorTypeProviderComponent: UseType<anyhow::Error>,
         ErrorRaiserComponent: UseDelegate<RaiseAppErrors>,
         ErrorWrapperComponent: UseDelegate<WrapAppErrors>,
         ConfigLoaderComponent: LoadJsonConfig,
@@ -1100,10 +1027,12 @@ delegate_components! {
     }
 }
 #
-#     impl ProvideConfigType<App> for AppComponents {
+#     #[cgp_provider]
+#     impl ConfigTypeProvider<App> for AppComponents {
 #         type Config = AppConfig;
 #     }
 #
+#     #[cgp_provider]
 #     impl ConfigPathGetter<App> for AppComponents {
 #         fn config_path(app: &App) -> &PathBuf {
 #             &app.config_path

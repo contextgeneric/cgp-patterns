@@ -19,7 +19,10 @@ use core::fmt::Debug;
 
 use cgp::prelude::*;
 
-cgp_type!( Error: Debug );
+#[cgp_type]
+pub trait HasErrorType {
+    type Error: Debug;
+}
 ```
 
 The `HasErrorType` trait is particularly significant because it serves as a standard type API for _all_ CGP components that involve abstract errors. Its definition is intentionally minimal, consisting of a single associated type, `Error`, constrained by `Debug` by default. This `Debug` constraint was chosen because many Rust APIs, such as `Result::unwrap`, rely on error types implementing `Debug`.
@@ -33,8 +36,15 @@ Building on the example from the previous chapter, we can update authentication 
 #
 # use cgp::prelude::*;
 #
-# cgp_type!( Time );
-# cgp_type!( AuthToken );
+# #[cgp_type]
+# pub trait HasTimeType {
+#     type Time: Eq + Ord;
+# }
+#
+# #[cgp_type]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
 #
 #[cgp_component {
     provider: AuthTokenValidator,
@@ -74,19 +84,22 @@ For example, we can modify the `ValidateTokenIsNotExpired` provider to convert a
 #
 # use cgp::prelude::*;
 #
-# cgp_type!( Time );
-# cgp_type!( AuthToken );
+# #[cgp_type]
+# pub trait HasTimeType {
+#     type Time: Eq + Ord;
+# }
 #
-# #[cgp_component {
-#     provider: AuthTokenValidator,
-# }]
+# #[cgp_type]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
+#
+# #[cgp_component(AuthTokenValidator)]
 # pub trait CanValidateAuthToken: HasAuthTokenType + HasErrorType {
 #     fn validate_auth_token(&self, auth_token: &Self::AuthToken) -> Result<(), Self::Error>;
 # }
 #
-# #[cgp_component {
-#     provider: AuthTokenExpiryFetcher,
-# }]
+# #[cgp_component(AuthTokenExpiryFetcher)]
 # pub trait CanFetchAuthTokenExpiry: HasAuthTokenType + HasTimeType + HasErrorType {
 #     fn fetch_auth_token_expiry(
 #         &self,
@@ -94,15 +107,12 @@ For example, we can modify the `ValidateTokenIsNotExpired` provider to convert a
 #     ) -> Result<Self::Time, Self::Error>;
 # }
 #
-# #[cgp_component {
-#     provider: CurrentTimeGetter,
-# }]
+# #[cgp_component(CurrentTimeGetter)]
 # pub trait HasCurrentTime: HasTimeType + HasErrorType {
 #     fn current_time(&self) -> Result<Self::Time, Self::Error>;
 # }
 #
-pub struct ValidateTokenIsNotExpired;
-
+#[cgp_new_provider]
 impl<Context> AuthTokenValidator<Context> for ValidateTokenIsNotExpired
 where
     Context: HasCurrentTime + CanFetchAuthTokenExpiry + HasErrorType,
@@ -137,19 +147,22 @@ CGP encourages an iterative approach to error handling. Developers can begin wit
 #
 # use cgp::prelude::*;
 #
-# cgp_type!( Time );
-# cgp_type!( AuthToken );
+# #[cgp_type]
+# pub trait HasTimeType {
+#     type Time: Eq + Ord;
+# }
 #
-# #[cgp_component {
-#     provider: AuthTokenValidator,
-# }]
+# #[cgp_type]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
+#
+# #[cgp_component(AuthTokenValidator)]
 # pub trait CanValidateAuthToken: HasAuthTokenType + HasErrorType {
 #     fn validate_auth_token(&self, auth_token: &Self::AuthToken) -> Result<(), Self::Error>;
 # }
 #
-# #[cgp_component {
-#     provider: AuthTokenExpiryFetcher,
-# }]
+# #[cgp_component(AuthTokenExpiryFetcher)]
 # pub trait CanFetchAuthTokenExpiry: HasAuthTokenType + HasTimeType + HasErrorType {
 #     fn fetch_auth_token_expiry(
 #         &self,
@@ -157,18 +170,12 @@ CGP encourages an iterative approach to error handling. Developers can begin wit
 #     ) -> Result<Self::Time, Self::Error>;
 # }
 #
-# #[cgp_component {
-#     provider: CurrentTimeGetter,
-# }]
+# #[cgp_component(CurrentTimeGetter)]
 # pub trait HasCurrentTime: HasTimeType + HasErrorType {
 #     fn current_time(&self) -> Result<Self::Time, Self::Error>;
 # }
 #
-pub struct ValidateTokenIsNotExpired;
-
-#[derive(Debug)]
-pub struct ErrAuthTokenHasExpired;
-
+#[cgp_new_provider]
 impl<Context> AuthTokenValidator<Context> for ValidateTokenIsNotExpired
 where
     Context: HasCurrentTime + CanFetchAuthTokenExpiry + HasErrorType,
@@ -190,6 +197,9 @@ where
         }
     }
 }
+
+#[derive(Debug)]
+pub struct ErrAuthTokenHasExpired;
 
 impl Display for ErrAuthTokenHasExpired {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -215,9 +225,7 @@ To address these issues, we recommend using a more flexible — though slightly 
 #
 # use cgp::prelude::*;
 #
-#[cgp_component {
-    provider: ErrorRaiser,
-}]
+#[cgp_component(ErrorRaiser)]
 pub trait CanRaiseError<SourceError>: HasErrorType {
     fn raise_error(e: SourceError) -> Self::Error;
 }
@@ -234,8 +242,15 @@ We can now update the `ValidateTokenIsNotExpired` provider to use `CanRaiseError
 #
 # use cgp::prelude::*;
 #
-# cgp_type!( Time );
-# cgp_type!( AuthToken );
+# #[cgp_type]
+# pub trait HasTimeType {
+#     type Time: Eq + Ord;
+# }
+#
+# #[cgp_type]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
 #
 # #[cgp_component {
 #     provider: AuthTokenValidator,
@@ -261,8 +276,7 @@ We can now update the `ValidateTokenIsNotExpired` provider to use `CanRaiseError
 #     fn current_time(&self) -> Result<Self::Time, Self::Error>;
 # }
 #
-pub struct ValidateTokenIsNotExpired;
-
+#[cgp_new_provider]
 impl<Context> AuthTokenValidator<Context> for ValidateTokenIsNotExpired
 where
     Context: HasCurrentTime + CanFetchAuthTokenExpiry + CanRaiseError<&'static str>,
@@ -297,10 +311,10 @@ By defining the `CanRaiseError` trait using CGP, we overcome the limitations of 
 # extern crate cgp;
 # extern crate anyhow;
 #
-use cgp::core::error::{ErrorRaiser, HasErrorType};
+# use cgp::prelude::*;
+use cgp::core::error::{ErrorRaiser, ErrorRaiserComponent, HasErrorType};
 
-pub struct RaiseAnyhowError;
-
+#[cgp_new_provider]
 impl<Context, SourceError> ErrorRaiser<Context, SourceError> for RaiseAnyhowError
 where
     Context: HasErrorType<Error = anyhow::Error>,
@@ -319,10 +333,10 @@ For a more generalized approach, we can create a provider that works with _any_ 
 ```rust
 # extern crate cgp;
 #
-use cgp::core::error::{ErrorRaiser, HasErrorType};
+# use cgp::prelude::*;
+use cgp::core::error::{ErrorRaiser, ErrorRaiserComponent, HasErrorType};
 
-pub struct RaiseFrom;
-
+#[cgp_new_provider]
 impl<Context, SourceError> ErrorRaiser<Context, SourceError> for RaiseFrom
 where
     Context: HasErrorType,
@@ -345,10 +359,10 @@ The introduction of `CanRaiseError` might seem redundant when it ultimately reli
 use core::fmt::Debug;
 
 use anyhow::anyhow;
-use cgp::core::error::{ErrorRaiser, HasErrorType};
+use cgp::prelude::*;
+use cgp::core::error::{ErrorRaiser, ErrorRaiserComponent, HasErrorType};
 
-pub struct DebugAnyhowError;
-
+#[cgp_new_provider]
 impl<Context, SourceError> ErrorRaiser<Context, SourceError> for DebugAnyhowError
 where
     Context: HasErrorType<Error = anyhow::Error>,
@@ -385,19 +399,22 @@ from the previous chapter, and make it generic over the error type:
 pub mod traits {
     use cgp::prelude::*;
 
-    cgp_type!( Time );
-    cgp_type!( AuthToken );
+    #[cgp_type]
+    pub trait HasTimeType {
+        type Time: Eq + Ord;
+    }
 
-    #[cgp_component {
-        provider: AuthTokenValidator,
-    }]
+    #[cgp_type]
+    pub trait HasAuthTokenType {
+        type AuthToken;
+    }
+
+    #[cgp_component(AuthTokenValidator)]
     pub trait CanValidateAuthToken: HasAuthTokenType + HasErrorType {
         fn validate_auth_token(&self, auth_token: &Self::AuthToken) -> Result<(), Self::Error>;
     }
 
-    #[cgp_component {
-        provider: AuthTokenExpiryFetcher,
-    }]
+    #[cgp_component(AuthTokenExpiryFetcher)]
     pub trait CanFetchAuthTokenExpiry: HasAuthTokenType + HasTimeType + HasErrorType {
         fn fetch_auth_token_expiry(
             &self,
@@ -405,9 +422,7 @@ pub mod traits {
         ) -> Result<Self::Time, Self::Error>;
     }
 
-    #[cgp_component {
-        provider: CurrentTimeGetter,
-    }]
+    #[cgp_component(CurrentTimeGetter)]
     pub trait HasCurrentTime: HasTimeType + HasErrorType {
         fn current_time(&self) -> Result<Self::Time, Self::Error>;
     }
@@ -417,17 +432,15 @@ pub mod impls {
     use core::fmt::Debug;
 
     use anyhow::anyhow;
-    use cgp::core::error::{ErrorRaiser, ProvideErrorType};
-    use cgp::prelude::{CanRaiseError, HasErrorType};
+    use cgp::prelude::*;
     use datetime::LocalDateTime;
 
     use super::traits::*;
 
-    pub struct ValidateTokenIsNotExpired;
-
     #[derive(Debug)]
     pub struct ErrAuthTokenHasExpired;
 
+    #[cgp_new_provider]
     impl<Context> AuthTokenValidator<Context> for ValidateTokenIsNotExpired
     where
         Context: HasCurrentTime + CanFetchAuthTokenExpiry + CanRaiseError<ErrAuthTokenHasExpired>,
@@ -451,10 +464,12 @@ pub mod impls {
 
     pub struct UseLocalDateTime;
 
+    #[cgp_provider]
     impl<Context> TimeTypeProvider<Context> for UseLocalDateTime {
         type Time = LocalDateTime;
     }
 
+    #[cgp_provider]
     impl<Context> CurrentTimeGetter<Context> for UseLocalDateTime
     where
         Context: HasTimeType<Time = LocalDateTime> + HasErrorType,
@@ -469,7 +484,7 @@ pub mod contexts {
     use std::collections::BTreeMap;
 
     use anyhow::anyhow;
-    use cgp::core::error::{ErrorRaiserComponent, ErrorTypeComponent};
+    use cgp::core::error::{ErrorRaiserComponent, ErrorTypeProviderComponent};
     use cgp::prelude::*;
     use cgp_error_anyhow::{UseAnyhowError, DebugAnyhowError};
     use datetime::LocalDateTime;
@@ -477,20 +492,17 @@ pub mod contexts {
     use super::impls::*;
     use super::traits::*;
 
+    #[cgp_context]
     pub struct MockApp {
         pub auth_tokens_store: BTreeMap<String, LocalDateTime>,
     }
 
-    pub struct MockAppComponents;
-
-    impl HasProvider for MockApp {
-        type Provider = MockAppComponents;
-    }
-
     delegate_components! {
         MockAppComponents {
-            ErrorTypeComponent: UseAnyhowError,
-            ErrorRaiserComponent: DebugAnyhowError,
+            ErrorTypeProviderComponent:
+                UseAnyhowError,
+            ErrorRaiserComponent:
+                DebugAnyhowError,
             [
                 TimeTypeProviderComponent,
                 CurrentTimeGetterComponent,
@@ -500,6 +512,7 @@ pub mod contexts {
         }
     }
 
+    #[cgp_provider]
     impl AuthTokenExpiryFetcher<MockApp> for MockAppComponents {
         fn fetch_auth_token_expiry(
             context: &MockApp,
@@ -513,9 +526,11 @@ pub mod contexts {
         }
     }
 
-    pub trait CanUseMockApp: CanValidateAuthToken {}
-
-    impl CanUseMockApp for MockApp {}
+    check_components! {
+        CanUseMockApp for MockApp {
+            AuthTokenValidatorComponent,
+        }
+    }
 }
 #
 # }
