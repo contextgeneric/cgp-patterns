@@ -257,6 +257,38 @@ delegate_components! {
 }
 ```
 
+## `#[cgp_context]` Macro
+
+The `#[cgp_context]` macro can be applied on a context struct, to automatically define the provider struct for the context and implement `HasCgpProvider` for the context.
+
+Given the following context definition:
+
+```rust,ignore
+#[cgp_context(MyContextComponents)]
+pub struct MyContext {
+    ...
+}
+```
+
+The macro will generate the following constructs:
+
+```rust,ignore
+pub struct MyContextComponents;
+
+impl HasCgpProvider for MyContext {
+    type CgpProvider = MyContextComponents;
+}
+```
+
+If the context provider name follows the pattern `{ContextName}Components`, then the macro attribute argument can be omitted, and the code can be simplified to:
+
+```rust,ignore
+#[cgp_context]
+pub struct MyContext {
+    ...
+}
+```
+
 ## `#[cgp_provider]` Macro
 
 When implementing a provider, the `#[cgp_provider]` macro needs to be used to automatically implement the `IsProviderFor` implementation, with all constraints within the `impl` block copied over.
@@ -464,17 +496,11 @@ where
 }
 
 // Concrete context and wiring
-
+#[cgp_context]
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct Person {
     pub first_name: String,
     pub last_name: String,
-}
-
-pub struct PersonComponents;
-
-impl HasCgpProvider for Person {
-    type CgpProvider = PersonComponents;
 }
 
 delegate_and_check_components! {
