@@ -6,7 +6,7 @@ In summary, a CGP component is consist of the following building blocks:
 - A consumer trait.
 - A provider trait.
 - A component name type.
-- A blanket implementation of the consumer trait using `HasProvider`.
+- A blanket implementation of the consumer trait using `HasCgpProvider`.
 - A blanket implementation of the provider trait using `DelegateComponent`.
 
 Syntactically, all CGP components follow the same pattern. The pattern is
@@ -46,7 +46,7 @@ where
 impl<Context, GenericA, GenericB, ...>
     CanPerformAction<GenericA, GenericB, ...> for Context
 where
-    Context: HasProvider + ConstraintA + ConstraintB + ...,
+    Context: HasCgpProvider + ConstraintA + ConstraintB + ...,
     Context::Components: ActionPerformer<Context>,
 {
     fn perform_action(
@@ -111,7 +111,7 @@ pub trait CanPerformAction<GenericA, GenericB, ...>:
 
 To use the macro, the bulk import statement `use cgp::prelude::*` has to
 be used to bring all CGP constructs into scope. This includes the
-`HasProvider` and `DelegateComponent` traits, which are also provided
+`HasCgpProvider` and `DelegateComponent` traits, which are also provided
 by the `cgp` crate.
 
 We then use `cgp_component` as an attribute proc macro, with several
@@ -424,8 +424,8 @@ pub struct Person {
 
 pub struct PersonComponents;
 
-impl HasProvider for Person {
-    type Provider = PersonComponents;
+impl HasCgpProvider for Person {
+    type CgpProvider = PersonComponents;
 }
 
 delegate_components! {

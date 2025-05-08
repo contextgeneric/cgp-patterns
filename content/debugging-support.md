@@ -34,8 +34,8 @@ Consider if we made a mistake and forgot to implement `Serialize` for `Person`:
 # use anyhow::Error;
 # use serde::{Serialize, Deserialize};
 #
-# pub trait HasProvider {
-#     type Provider;
+# pub trait HasCgpProvider {
+#     type CgpProvider;
 # }
 #
 # pub trait CanFormatToString {
@@ -56,21 +56,21 @@ Consider if we made a mistake and forgot to implement `Serialize` for `Person`:
 #
 # impl<Context> CanFormatToString for Context
 # where
-#     Context: HasProvider,
-#     Context::Provider: StringFormatter<Context>,
+#     Context: HasCgpProvider,
+#     Context::CgpProvider: StringFormatter<Context>,
 # {
 #     fn format_to_string(&self) -> Result<String, Error> {
-#         Context::Provider::format_to_string(self)
+#         Context::CgpProvider::format_to_string(self)
 #     }
 # }
 #
 # impl<Context> CanParseFromString for Context
 # where
-#     Context: HasProvider,
-#     Context::Provider: StringParser<Context>,
+#     Context: HasCgpProvider,
+#     Context::CgpProvider: StringParser<Context>,
 # {
 #     fn parse_from_string(raw: &str) -> Result<Context, Error> {
-#         Context::Provider::parse_from_string(raw)
+#         Context::CgpProvider::parse_from_string(raw)
 #     }
 # }
 #
@@ -132,8 +132,8 @@ pub struct Person {
 
 pub struct PersonComponents;
 
-impl HasProvider for Person {
-    type Provider = PersonComponents;
+impl HasCgpProvider for Person {
+    type CgpProvider = PersonComponents;
 }
 
 impl DelegateComponent<StringFormatterComponent> for PersonComponents {
@@ -162,8 +162,8 @@ call `format_to_string`, and check if it works:
 # use anyhow::Error;
 # use serde::{Serialize, Deserialize};
 #
-# pub trait HasProvider {
-#     type Provider;
+# pub trait HasCgpProvider {
+#     type CgpProvider;
 # }
 #
 # pub trait CanFormatToString {
@@ -184,21 +184,21 @@ call `format_to_string`, and check if it works:
 #
 # impl<Context> CanFormatToString for Context
 # where
-#     Context: HasProvider,
-#     Context::Provider: StringFormatter<Context>,
+#     Context: HasCgpProvider,
+#     Context::CgpProvider: StringFormatter<Context>,
 # {
 #     fn format_to_string(&self) -> Result<String, Error> {
-#         Context::Provider::format_to_string(self)
+#         Context::CgpProvider::format_to_string(self)
 #     }
 # }
 #
 # impl<Context> CanParseFromString for Context
 # where
-#     Context: HasProvider,
-#     Context::Provider: StringParser<Context>,
+#     Context: HasCgpProvider,
+#     Context::CgpProvider: StringParser<Context>,
 # {
 #     fn parse_from_string(raw: &str) -> Result<Context, Error> {
-#         Context::Provider::parse_from_string(raw)
+#         Context::CgpProvider::parse_from_string(raw)
 #     }
 # }
 #
@@ -260,8 +260,8 @@ call `format_to_string`, and check if it works:
 #
 # pub struct PersonComponents;
 #
-# impl HasProvider for Person {
-#     type Provider = PersonComponents;
+# impl HasCgpProvider for Person {
+#     type CgpProvider = PersonComponents;
 # }
 #
 # impl DelegateComponent<StringFormatterComponent> for PersonComponents {
@@ -578,8 +578,8 @@ specified for each supertrait, which becomes tedious and adds noise.
 We can improve the check definitions by introducing a helper `CanUseComponent` trait that is defined as follows:
 
 ```rust
-# pub trait HasProvider {
-#     type Provider;
+# pub trait HasCgpProvider {
+#     type CgpProvider;
 # }
 #
 pub trait IsProviderFor<Component, Context, Params = ()> {}
@@ -588,17 +588,17 @@ pub trait CanUseComponent<Component, Params = ()> {}
 
 impl<Context, Component, Params> CanUseComponent<Component, Params> for Context
 where
-    Context: HasProvider,
-    Context::Provider: IsProviderFor<Component, Context, Params>,
+    Context: HasCgpProvider,
+    Context::CgpProvider: IsProviderFor<Component, Context, Params>,
 {
 }
 ```
 
 Instead of being implemented by a provider, `CanUseComponent` is intended to be implemented by a context type that
-implements `HasProvider`. Compared to `IsProviderFor`, there is no need to specify an explicit `Context` parameter.
+implements `HasCgpProvider`. Compared to `IsProviderFor`, there is no need to specify an explicit `Context` parameter.
 
 `CanUseComponent` also has a blanket implementation, making it automatically implemented for any `Context` type
-that implements `HasProvider`, with `Context::Provider` implementing `IsProviderFor`.
+that implements `HasCgpProvider`, with `Context::CgpProvider` implementing `IsProviderFor`.
 
 In other words, we are using `CanUseComponent` as a _trait alias_ to `IsProviderFor`, with improved ergonomics
 that we can check directly against a context type.
@@ -663,8 +663,8 @@ We will show the full example that we have walked through earlier, with the addi
 use anyhow::Error;
 use serde::{Deserialize, Serialize};
 
-pub trait HasProvider {
-    type Provider;
+pub trait HasCgpProvider {
+    type CgpProvider;
 }
 
 pub trait IsProviderFor<Component, Context, Params = ()> {}
@@ -677,8 +677,8 @@ pub trait CanUseComponent<Component, Params = ()> {}
 
 impl<Context, Component, Params> CanUseComponent<Component, Params> for Context
 where
-    Context: HasProvider,
-    Context::Provider: IsProviderFor<Component, Context, Params>,
+    Context: HasCgpProvider,
+    Context::CgpProvider: IsProviderFor<Component, Context, Params>,
 {
 }
 
@@ -708,21 +708,21 @@ pub trait StringParser<Context>:
 
 impl<Context> CanFormatToString for Context
 where
-    Context: HasProvider,
-    Context::Provider: StringFormatter<Context>,
+    Context: HasCgpProvider,
+    Context::CgpProvider: StringFormatter<Context>,
 {
     fn format_to_string(&self) -> Result<String, Error> {
-        Context::Provider::format_to_string(self)
+        Context::CgpProvider::format_to_string(self)
     }
 }
 
 impl<Context> CanParseFromString for Context
 where
-    Context: HasProvider,
-    Context::Provider: StringParser<Context>,
+    Context: HasCgpProvider,
+    Context::CgpProvider: StringParser<Context>,
 {
     fn parse_from_string(raw: &str) -> Result<Context, Error> {
-        Context::Provider::parse_from_string(raw)
+        Context::CgpProvider::parse_from_string(raw)
     }
 }
 
@@ -793,8 +793,8 @@ pub struct Person {
 
 pub struct PersonComponents;
 
-impl HasProvider for Person {
-    type Provider = PersonComponents;
+impl HasCgpProvider for Person {
+    type CgpProvider = PersonComponents;
 }
 
 impl DelegateComponent<StringFormatterComponent> for PersonComponents {

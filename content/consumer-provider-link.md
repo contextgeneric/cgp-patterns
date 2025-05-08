@@ -89,8 +89,8 @@ chosen provider. We would define the blanket implementation for `CanFormatString
 as follows:
 
 ```rust
-pub trait HasProvider {
-    type Provider;
+pub trait HasCgpProvider {
+    type CgpProvider;
 }
 
 pub trait CanFormatString {
@@ -103,27 +103,27 @@ pub trait StringFormatter<Context> {
 
 impl<Context> CanFormatString for Context
 where
-    Context: HasProvider,
-    Context::Provider: StringFormatter<Context>,
+    Context: HasCgpProvider,
+    Context::CgpProvider: StringFormatter<Context>,
 {
     fn format_string(&self) -> String {
-        Context::Provider::format_string(self)
+        Context::CgpProvider::format_string(self)
     }
 }
 ```
 
-First of all, we define a new `HasProvider` trait that contains an associated
-type `Provider`. The `Provider` type would be specified by a context to
+First of all, we define a new `HasCgpProvider` trait that contains an associated
+type `CgpProvider`. The `CgpProvider` type would be specified by a context to
 choose a provider that it would use to forward all implementations of consumer
 traits. Following that, we add a blanket implementation for `CanFormatString`,
-which would be implemented for any `Context` that implements `HasProvider`,
-provided that `Context::Provider` implements `StringFormatter<Context>`.
+which would be implemented for any `Context` that implements `HasCgpProvider`,
+provided that `Context::CgpProvider` implements `StringFormatter<Context>`.
 
 To explain in simpler terms - if a context has a provider that implements
 a provider trait for that context, then the consumer trait for that context
 is also automatically implemented.
 
-With the new blanket implementation in place, we can now implement `HasProvider`
+With the new blanket implementation in place, we can now implement `HasCgpProvider`
 for the `Person` context, and it would now help us to implement `CanFormatString`
 for free:
 
@@ -142,16 +142,16 @@ impl Display for Person {
     }
 }
 
-impl HasProvider for Person {
-    type Provider = FormatStringWithDisplay;
+impl HasCgpProvider for Person {
+    type CgpProvider = FormatStringWithDisplay;
 }
 
 let person = Person { first_name: "John".into(), last_name: "Smith".into() };
 
 assert_eq!(person.format_string(), "John Smith");
 #
-# pub trait HasProvider {
-#     type Provider;
+# pub trait HasCgpProvider {
+#     type CgpProvider;
 # }
 #
 # pub trait CanFormatString {
@@ -164,11 +164,11 @@ assert_eq!(person.format_string(), "John Smith");
 #
 # impl<Context> CanFormatString for Context
 # where
-#     Context: HasProvider,
-#     Context::Provider: StringFormatter<Context>,
+#     Context: HasCgpProvider,
+#     Context::CgpProvider: StringFormatter<Context>,
 # {
 #     fn format_string(&self) -> String {
-#         Context::Provider::format_string(self)
+#         Context::CgpProvider::format_string(self)
 #     }
 # }
 #
@@ -184,24 +184,24 @@ assert_eq!(person.format_string(), "John Smith");
 # }
 ```
 
-Compared to before, the implementation of `HasProvider` is much shorter than
+Compared to before, the implementation of `HasCgpProvider` is much shorter than
 implementing `CanFormatString` directly, since we only need to specify the provider
 type without any function definition.
 
 At the moment, because the `Person` context only implements one consumer trait, we
-can set `FormatStringWithDisplay` directly as `Person::Provider`. However, if there
+can set `FormatStringWithDisplay` directly as `Person::CgpProvider`. However, if there
 are other consumer traits that we would like to use with `Person`, we would need to
-define `Person::Provider` with a separate provider that implements multiple provider
+define `Person::CgpProvider` with a separate provider that implements multiple provider
 traits. This will be covered in the next chapter, which we would talk about how to
 link multiple providers of different provider traits together.
 
 ## Component System
 
 You may have noticed that the trait for specifying the provider for a context is called
-`HasProvider` instead of `HasProviders`. This is to generalize the idea of a pair of
+`HasCgpProvider` instead of `HasCgpProviders`. This is to generalize the idea of a pair of
 consumer trait and provider trait working together, forming a _component_.
 
 In context-generic programming, we use the term _component_ to refer to a consumer-provider
 trait pair. The consumer trait and the provider trait are linked together through blanket
-implementations and traits such as `HasProvider`. These constructs working together to
+implementations and traits such as `HasCgpProvider`. These constructs working together to
 form the basis for a _component system_ for CGP.

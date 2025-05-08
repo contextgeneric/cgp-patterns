@@ -159,7 +159,7 @@ pub trait HasAuthTokenType {
 
 Here, we define the `HasTimeType` trait with an associated type `Time`, which is constrained to types that implement `Eq` and `Ord` so that they can be compared. Similarly, the `HasAuthTokenType` trait defines an associated type `AuthToken`, without any additional constraints.
 
-Similar to regular trait methods, CGP allows us to auto-derive blanket implementations that delegate the associated types to providers using `HasProvider` and `DelegateComponent`. Therefore, we can use `#[cgp_component]` on traits containing associated types as well.
+Similar to regular trait methods, CGP allows us to auto-derive blanket implementations that delegate the associated types to providers using `HasCgpProvider` and `DelegateComponent`. Therefore, we can use `#[cgp_component]` on traits containing associated types as well.
 
 With these type traits in place, we can now update our authentication components to leverage abstract types within the trait methods:
 
