@@ -361,6 +361,55 @@ impl CanUseContext for Context {}
 
 The `check_components!` macro allows the use of array syntax at either the key or value position, when there are multiple components that share the same set of generic parameters.
 
+## `delegate_and_check_components!` Macro
+
+The `delegate_and_check_components!` macro combines both calls to `delegate_components!` and `check_components!`, so that wiring checks are done as soon as a delegate entry is added. This can simplify the boilerplate required to duplicate the code of listing all components in both delegate and check entries.
+
+Given the following:
+
+```rust,ignore
+delegate_and_check_components! {
+    CanUseContext for Context;
+    ContextComponents {
+        ComponentA: ProviderA,
+        ComponentB: ProviderB,
+        [
+            ComponentC1,
+            ComponentC2,
+            ...
+        ]: ProviderC,
+    }
+}
+```
+
+The macro would expand into the equivalent of:
+
+```rust,ignore
+delegate_components! {
+    ContextComponents {
+        ComponentA: ProviderA,
+        ComponentB: ProviderB,
+        [
+            ComponentC1,
+            ComponentC2,
+            ...
+        ]: ProviderC,
+    }
+}
+
+check_components! {
+    CanUseContext for Context {
+        ComponentA,
+        ComponentB,
+        ComponentC1,
+        ComponentC2,
+    }
+}
+```
+
+You may wonder why we need define a separate macro, instead of always checking the wiring directly inside `delegate_components!`. The main reason is that while `delegate_and_check_components!` can work for the simple cases, it is more limited and cannot handle well on advanced cases where the CGP traits contain additional generic parameters. For such cases, it is still better to call `delegate_components!` and `check_components!` separately.
+
+
 ## Example Use
 
 To illustrate how `cgp_component` and `delegate_components` can be
@@ -428,19 +477,13 @@ impl HasCgpProvider for Person {
     type CgpProvider = PersonComponents;
 }
 
-delegate_components! {
+delegate_and_check_components! {
+    CanUsePerson for Person;
     PersonComponents {
         StringFormatterComponent:
             FormatAsJsonString,
         StringParserComponent:
             ParseFromJsonString,
-    }
-}
-
-check_components! {
-    CanUsePerson for Person {
-        StringFormatterComponent,
-        StringParserComponent,
     }
 }
 ```
@@ -450,9 +493,7 @@ Using `#[cgp_component]`, we no longer need to explicitly define the provider tr
 
 With `#[cgp_new_provider]`, the `IsProviderFor` implementations for `FormatAsJsonString` and `ParseFromJsonString` are automatically implemented, together with the struct definitions.
 
-We also make use of `delegate_components!` on `PersonComponents` to delegate `StringFormatterComponent` to `FormatAsJsonString`, and `StringParserComponent` to `ParseFromJsonString`.
-
-Finally, the `check_components!` macro helps us check that we can in fact use `StringFormatterComponent` and `StringParserComponent` with the `Person` context.
+We also make use of `delegate_and_check_components!` on `PersonComponents` to delegate `StringFormatterComponent` to `FormatAsJsonString`, and `StringParserComponent` to `ParseFromJsonString`, and then check to ensure that the wirings are implemented correctly for the `Person` context.
 
 ## CGP Macros as Language Extension
 

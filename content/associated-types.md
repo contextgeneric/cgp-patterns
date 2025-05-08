@@ -84,7 +84,8 @@ pub mod contexts {
         pub auth_tokens_store: BTreeMap<String, u64>,
     }
 
-    delegate_components! {
+    delegate_and_check_components! {
+        CanUseMockApp for MockApp;
         MockAppComponents {
             CurrentTimeGetterComponent: GetSystemTimestamp,
             AuthTokenValidatorComponent: ValidateTokenIsNotExpired,
@@ -102,12 +103,6 @@ pub mod contexts {
                 .get(auth_token)
                 .cloned()
                 .ok_or_else(|| anyhow!("invalid auth token"))
-        }
-    }
-
-    check_components! {
-        CanUseMockApp for MockApp {
-            AuthTokenValidatorComponent,
         }
     }
 }
@@ -663,7 +658,8 @@ pub mod contexts {
         pub auth_tokens_store: BTreeMap<String, LocalDateTime>,
     }
 
-    delegate_components! {
+    delegate_and_check_components! {
+        CanUseMockApp for MockApp;
         MockAppComponents {
             [
                 TimeTypeProviderComponent,
@@ -685,13 +681,6 @@ pub mod contexts {
                 .get(auth_token)
                 .cloned()
                 .ok_or_else(|| anyhow!("invalid auth token"))
-        }
-    }
-
-
-    check_components! {
-        CanUseMockApp for MockApp {
-            AuthTokenValidatorComponent,
         }
     }
 }

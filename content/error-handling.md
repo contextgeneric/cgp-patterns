@@ -497,7 +497,8 @@ pub mod contexts {
         pub auth_tokens_store: BTreeMap<String, LocalDateTime>,
     }
 
-    delegate_components! {
+    delegate_and_check_components! {
+        CanUseMockApp for MockApp;
         MockAppComponents {
             ErrorTypeProviderComponent:
                 UseAnyhowError,
@@ -523,12 +524,6 @@ pub mod contexts {
                 .get(auth_token)
                 .cloned()
                 .ok_or_else(|| anyhow!("invalid auth token"))
-        }
-    }
-
-    check_components! {
-        CanUseMockApp for MockApp {
-            AuthTokenValidatorComponent,
         }
     }
 }
