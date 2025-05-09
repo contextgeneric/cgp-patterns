@@ -272,7 +272,7 @@ pub trait HasTimeType {
 }
 
 #[cgp_type {
-    provider: TimeTypeProvider,
+    provider: AuthTokenTypeProvider,
 }]
 pub trait HasAuthTokenType {
     type AuthToken;
