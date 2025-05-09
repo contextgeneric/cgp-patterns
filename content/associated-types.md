@@ -253,11 +253,33 @@ where
 
 This example shows how CGP enables us to define context-generic providers that are not just generic over the context itself, but also over its associated types. Unlike traditional generic programming, where all generic parameters are specified positionally, CGP allows us to parameterize abstract types using _names_ via associated types.
 
-## Defining Abstract Type Traits with `cgp_type!`
+## Defining Abstract Type Traits with `#[cgp_type]`
 
-The type traits `HasTimeType` and `HasAuthTokenType` share a similar structure, and as you define more abstract types, this boilerplate can become tedious. To streamline the process, the `cgp` crate provides the `cgp_type!` macro, which simplifies type trait definitions.
+The type traits `HasTimeType` and `HasAuthTokenType` share a similar structure, and as you define more abstract types, this boilerplate can become tedious. To streamline the process, the `cgp` crate provides the `#[cgp_type]` macro, which simplifies type trait definitions.
 
-Here's how you can define the same types with `cgp_type!`:
+Here's how you can define the same types with `#[cgp_type]`:
+
+```rust
+# extern crate cgp;
+#
+use cgp::prelude::*;
+
+#[cgp_type {
+    provider: TimeTypeProvider,
+}]
+pub trait HasTimeType {
+    type Time: Eq + Ord;
+}
+
+#[cgp_type {
+    provider: TimeTypeProvider,
+}]
+pub trait HasAuthTokenType {
+    type AuthToken;
+}
+```
+
+The `#[cgp_type]` macro works with a CGP trait that contains a single non-generic associated type. It is an extension over `#[cgp_component]`, and generate additional constructs that make it easy to work with abstract types in CGP. When no argument is given, `#[cgp_type]` would default to generate a provider with name `{Type}TypeProvider`, and a component name `{Type}TypeProviderComponent`, where `{Type}` is the name of the associated type in the trait. So the above example can be shortened to:
 
 ```rust
 # extern crate cgp;
@@ -275,51 +297,11 @@ pub trait HasAuthTokenType {
 }
 ```
 
-The `cgp_type!` macro accepts the name of an abstract type, `$name`, along with any applicable constraints for that type. It then automatically generates the same implementation as the `cgp_component` macro: a consumer trait named `Has{$name}Type`, a provider trait named `Provide{$name}Type`, and a component name type named `${name}TypeComponent`. Each of the generated traits includes an associated type defined as `type $name: $constraints;`.
-In addition, `cgp_type!` also derives some other implementations, which we'll explore in later chapters.
-
-## Trait Minimalism
-
-At first glance, it might seem overly verbose to define multiple type traits and require each to be explicitly included as a supertrait of a method interface. For instance, you might be tempted to consolidate the methods and types into a single trait, like this:
-
-```rust
-# extern crate cgp;
-# extern crate anyhow;
-#
-# use cgp::prelude::*;
-# use anyhow::Error;
-#
-#[cgp_component(AppImpl)]
-pub trait AppTrait {
-    type Time: Eq + Ord;
-
-    type AuthToken;
-
-    fn validate_auth_token(&self, auth_token: &Self::AuthToken) -> Result<(), Error>;
-
-    fn fetch_auth_token_expiry(&self, auth_token: &Self::AuthToken) -> Result<Self::Time, Error>;
-
-    fn current_time(&self) -> Result<Self::Time, Error>;
-}
-```
-
-While this approach might seem simpler, it introduces unnecessary _coupling_ between
-potentially unrelated types and methods. For example, an application implementing
-token validation might delegate this functionality to an external microservice.
-In such a case, it is redundant to require the application to specify a Time type that
-it doesn’t actually use.
-
-In practice, we find the practical benefits of defining many _minimal_ traits often
-outweight any theoretical advantages of combining multiple items into one trait.
-As we will demonstrate in later chapters, having traits that contain only one type
-or method would also enable more advanced CGP patterns to be applied, including
-the use of `cgp_type!` that we have just covered.
-
-We encourage readers to embrace minimal traits without concern for theoretical overhead. However, during the early phases of a project, you might prefer to consolidate items to reduce cognitive overload while learning or prototyping. As the project matures, you can always refactor and decompose larger traits into smaller, more focused ones, following the techniques outlined in this book.
+We will explore in a moment how using `#[cgp_type]` with a single associated type bring more convenience, as compared to alternative approaches.
 
 ## Impl-Side Associated Type Constraints
 
-The minimalism philosophy of CGP extends to the constraints placed on associated types within type traits. Consider the earlier definition of `HasTimeType`:
+The dependency-injection capabilities of CGP opens up new choices of how to design the abstract type interfaces. Consider the earlier definition of `HasTimeType`:
 
 ```rust
 # extern crate cgp;
@@ -369,7 +351,7 @@ pub trait HasTimeType {
 # pub trait HasCurrentTime: HasTimeType {
 #     fn current_time(&self) -> Result<Self::Time, Error>;
 # }
-#
+
 #[cgp_new_provider]
 impl<Context> AuthTokenValidator<Context> for ValidateTokenIsNotExpired
 where
@@ -399,7 +381,7 @@ By applying constraints on the implementation side, we can conditionally require
 
 In some cases, it can still be convenient to include constraints (e.g., `Debug`) directly on an associated type, especially if those constraints are nearly universal across providers. Additionally, current Rust error reporting often produces clearer error messages when constraints are defined at the associated type level, as opposed to being deferred to the implementation.
 
-As a guideline, we recommend that readers begin by defining type traits without placing constraints on associated types, relying instead on implementation-side constraints wherever possible. However, readers may choose to apply global constraints to associated types when appropriate, particularly for simple and widely applicable traits like `Debug` and `Eq`.
+Ultimately, CGP does not prevent its users from preferring one design approach over another. The minimalistic abstract type design is one that you will likely see often in CGP code, particularly in this book. However, do not hesitate to include addititional trait bounds based on your requirements and preferences!
 
 ## Type Providers
 
@@ -507,11 +489,11 @@ impl<Context> AuthTokenTypeProvider<Context> for UseStringAuthToken {
 }
 ```
 
-Compared to the newtype pattern, we can use plain `String` values directly, without wrapping them in a newtype struct. Contrary to common wisdom, in CGP, we place less emphasis on wrapping every domain type in a newtype. This is particularly true when most of the application is written in a context-generic style. The rationale is that abstract types and their accompanying interfaces already fulfill the role of newtypes by encapsulating and "protecting" raw values, reducing the need for additional wrapping.
+## Comparison to Newtype Pattern
 
-That said, readers are free to define newtypes and use them alongside abstract types. For beginners, this can be especially useful, as later chapters will explore methods to properly restrict access to underlying concrete types in context-generic code. Additionally, newtypes remain valuable when the raw values are also used in non-context-generic code, where access to the concrete types is unrestricted.
+Abstract types serve as an alternative to the newtype pattern. Compared to the newtype pattern, we can use plain `String` values directly, without wrapping them in a newtype struct. Contrary to common wisdom, in CGP, we place less emphasis on wrapping every domain type in a newtype. This is particularly true when most of the application is written in a context-generic style. The rationale is that abstract types and their accompanying interfaces already fulfill the role of newtypes by encapsulating and "protecting" raw values, reducing the need for additional wrapping.
 
-Throughout this book, we will primarily use plain types to implement abstract types, without additional newtype wrapping. However, we will revisit the comparison between newtypes and abstract types in later chapters, providing further guidance on when each approach is most appropriate.
+Ultimately, there is no right or wrong whether one should use abstract types, new types, or both together. It is up to your own preference, experience, and requirements, to decide which approach is best suited for you. Just take note that abstract types will be a commonly used pattern in CGP, particularly in this book.
 
 ## The `UseType` Pattern
 
