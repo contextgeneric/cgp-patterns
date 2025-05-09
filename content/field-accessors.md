@@ -314,7 +314,9 @@ In this updated code, we use the [`bearer_auth`](https://docs.rs/reqwest/latest/
 
 ## Traits with Multiple Getter Methods
 
-When creating providers like `ReadMessageFromApi`, which often need to use both `HasApiBaseUrl` and `HasAuthToken`, an alternative design would be to combine these two traits into a single one, containing both accessor methods:
+As you build providers that need access to various pieces of data – like a `ReadMessageFromApi` provider that requires both an `api_base_url` and an `auth_token` – you might initially consider grouping these accessors into a single trait.
+
+Here's an example of how you *could* define a trait with multiple getter methods for API client fields:
 
 ```rust
 # extern crate cgp;
@@ -335,11 +337,15 @@ pub trait HasApiClientFields: HasAuthTokenType {
 ```
 
 
-While this approach works, it introduces unnecessary coupling between the `api_base_url` and `auth_token` fields. If a provider only requires `api_base_url` but not `auth_token`, it would still need to include the unnecessary `auth_token` dependency. Additionally, this design prevents us from implementing separate providers that could provide the `api_base_url` and `auth_token` fields independently, each with its own logic.
+While this approach is syntactically valid, it introduces unnecessary coupling. If a provider only needs the `api_base_url`, it still inherits a dependency on the `auth_token`. This could potentially impact modularity and reusability.
 
-Furthermore, traits that contain only one method can benefit from the [`UseField`](./use-field-pattern.md) pattern that will be introduced later, which helps to simplify the boilerplate required to implement accessor traits, as well as allowing reusable accessor providers to be defined.
+Furthermore, this design prevents you from defining separate, independent providers for `api_base_url` and `auth_token`, each potentially with its own distinct logic for obtaining that data.
 
-Ultimately, CGP does not prevent you from defining multiple accessor methods into one trait, or even mix the trait with other items such as associated types or non-getter methods. It is your own decision of how to design CGP traits. Just keep in mind that it is common in CGP to see accessor traits that each contain only one getter method.
+Traits containing only one method also unlock powerful patterns like the [`UseField`](./use-field-pattern.md) pattern (which we'll introduce later). This pattern significantly simplifies the boilerplate required to implement accessor traits and enables the creation of reusable accessor providers.
+
+Ultimately, CGP provides the flexibility to design your traits in a way that suits your needs. You are not strictly prevented from defining multiple accessor methods within a single trait, or even mixing getters with associated types or other methods.
+
+However, you may find that defining accessor traits that each contain only one getter method is a frequently used pattern, often chosen for its potential benefits in modularity, reusability, and compatibility with helper patterns like UseField. You'll see this pattern frequently demonstrated throughout this book.
 
 ## Implementing Accessor Providers
 
