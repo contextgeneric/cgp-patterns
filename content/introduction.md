@@ -45,17 +45,22 @@ useful design patterns that can be used in any programming situation.
 This book is currently a work in progress. A majority of the chapter is yet to be written.
 Please come back later to check out a completed version of this book.
 
-## Whom is This Book For
+## Who This Book Is For
 
-This book tries to explain how CGP works by building the majority of its constructs from the ground up. However, many of the explained concepts are not immediately useful for writing CGP code, in particularly at the beginner level. This is because CGP already provides high enough abstraction, that one can write highly productive CGP code without understanding all the underlying details.
+This book takes a deep dive into how CGP works, building and explaining its core constructs from the ground up.
+
+However, it's worth noting that many of the concepts explained here are not immediately essential for simply writing working CGP code, particularly when you are just starting out. This is because CGP provides a high level of abstraction, allowing developers to write highly productive code without needing to understand all the underlying details.
 
 <div class="warning">
-Because of the above reasons, _you may not benefit much from reading this book_ if your goal is to get started with writing CGP as soon as possible.
+If your primary goal is to start writing CGP code and become productive as quickly as possible, this book might not be the most direct path.
 </div>
 
-On the other hand, the book is mainly useful for those who wish to understand better what happens behind the macros, after they have started using CGP for some time. This book would also be useful for users to understand better on what went wrong when encountering CGP-related error messages, so that they can fix the errors more effectively.
+On the other hand, this book is primarily intended for those who wish to gain a better understanding of what happens "behind the macros" after they have gained some experience using CGP.
 
-A separate book will be written in the future, to provide beginner-friendly tutorials for getting started with CGP more quickly.
+It will also be a valuable resource for users encountering CGP-related error messages, providing the knowledge needed to understand the root cause and fix issues more effectively.
+
+For beginners looking for a faster start, a separate book is planned for the future, which will provide more beginner-friendly tutorials focused on quickly getting started with CGP.
+book will be written in the future, to provide beginner-friendly tutorials for getting started with CGP more quickly.
 
 ## Chapter Outlines
 
