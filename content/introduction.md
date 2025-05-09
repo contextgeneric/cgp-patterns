@@ -45,17 +45,17 @@ useful design patterns that can be used in any programming situation.
 This book is currently a work in progress. A majority of the chapter is yet to be written.
 Please come back later to check out a completed version of this book.
 
-## Scope of This Book
+## Whom is This Book For
 
-This book is written in the style of a reference material for readers with all levels of expertise.
-As a result, it may not be as easy to understand for beginners who need a little more introduction
-to more basic programming techniques in Rust.
+This book tries to explain how CGP works by building the majority of its constructs from the ground up. However, many of the explained concepts are not immediately useful for writing CGP code, in particularly at the beginner level. This is because CGP already provides high enough abstraction, that one can write highly productive CGP code without understanding all the underlying details.
 
-A separate book will be written in the future, to provide beginner-friendly tutorials for learning context-generic programming.
+<div class="warning">
+Because of the above reasons, _you may not benefit much from reading this book_ if your goal is to get started with writing CGP as soon as possible.
+</div>
 
-For brievity, this book also does not cover motivation or concrete examples of _why_ you should
-learn and use context-generic programming. We will cover that in blog posts, and a separate book
-that covers real world use of CGP.
+On the other hand, the book is mainly useful for those who wish to understand better what happens behind the macros, after they have started using CGP for some time. This book would also be useful for users to understand better on what went wrong when encountering CGP-related error messages, so that they can fix the errors more effectively.
+
+A separate book will be written in the future, to provide beginner-friendly tutorials for getting started with CGP more quickly.
 
 ## Chapter Outlines
 
