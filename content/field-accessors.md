@@ -312,9 +312,9 @@ where
 
 In this updated code, we use the [`bearer_auth`](https://docs.rs/reqwest/latest/reqwest/blocking/struct.RequestBuilder.html#method.bearer_auth) method from the `reqwest` library to include the authentication token in the HTTP header. In this case, the provider only requires that `Context::AuthToken` implement the `Display` trait, allowing it to work with custom `AuthToken` types, not limited to `String`.
 
-## Accessor Method Minimalism
+## Traits with Multiple Getter Methods
 
-When creating providers like `ReadMessageFromApi`, which often need to use both `HasApiBaseUrl` and `HasAuthToken`, it might seem tempting to combine these two traits into a single one, containing both accessor methods:
+When creating providers like `ReadMessageFromApi`, which often need to use both `HasApiBaseUrl` and `HasAuthToken`, an alternative design would be to combine these two traits into a single one, containing both accessor methods:
 
 ```rust
 # extern crate cgp;
@@ -334,41 +334,12 @@ pub trait HasApiClientFields: HasAuthTokenType {
 }
 ```
 
+
 While this approach works, it introduces unnecessary coupling between the `api_base_url` and `auth_token` fields. If a provider only requires `api_base_url` but not `auth_token`, it would still need to include the unnecessary `auth_token` dependency. Additionally, this design prevents us from implementing separate providers that could provide the `api_base_url` and `auth_token` fields independently, each with its own logic.
 
-This coupling also makes future changes more challenging. For example, if we switch to a different authentication method, like public key cryptography, we would need to remove the auth_token method and replace it with a new one. This change would affect all code dependent on `HasApiClientFields`. Instead, it's much easier to add a new getter trait and gradually transition providers to the new trait while keeping the old one intact.
+Furthermore, traits that contain only one method can benefit from the [`UseField`](./use-field-pattern.md) pattern that will be introduced later, which helps to simplify the boilerplate required to implement accessor traits, as well as allowing reusable accessor providers to be defined.
 
-As applications grow in complexity, it’s common to need many accessor methods. A trait like `HasApiClientFields`, with dozens of methods, could quickly become a bottleneck, making the application harder to evolve. Moreover, it's often unclear upfront which accessor methods are related, and trying to theorize about logical groupings can be a distraction.
-
-From real-world experience using CGP, we’ve found that defining one accessor method per trait is the most effective approach for rapidly iterating on application development. This method simplifies the process of adding or removing accessor methods and reduces cognitive overload, as developers don’t need to spend time deciding or debating which method should belong to which trait. Over time, it's almost inevitable that a multi-method accessor trait will need to be broken up as some methods become irrelevant to parts of the application.
-
-In future chapters, we’ll explore how breaking accessor methods down into individual traits can enable new design patterns that work well with single-method traits.
-
-However, CGP doesn’t prevent developers from creating accessor traits with multiple methods and types. For those new to CGP, it might feel more comfortable to define non-minimal traits, as this has been a mainstream practice in programming for decades. So, feel free to experiment and include as many types and methods in a CGP trait as you prefer.
-
-As an alternative to defining multiple accessor methods, you could define an inner struct containing all the common fields you’ll use across most providers:
-
-```rust
-# extern crate cgp;
-#
-# use cgp::prelude::*;
-#
-pub struct ApiClientFields {
-    pub api_base_url: String,
-    pub auth_token: String,
-}
-
-#[cgp_component(ApiClientFieldsGetter)]
-pub trait HasApiClientFields {
-    fn api_client_fields(&self) -> &ApiClientFields;
-}
-```
-
-In this example, we define an `ApiClientFields` struct that groups both the `api_base_url` and `auth_token` fields. The `HasApiClientFields` trait now only needs one getter method, returning the `ApiClientFields` struct.
-
-One downside to this approach is that we can no longer use abstract types within the struct. For instance, the `ApiClientFields` struct stores the `auth_token` as a concrete `String` rather than as an abstract `AuthToken` type. As a result, this approach works best when your providers don’t rely on abstract types for their fields.
-
-For the purposes of this book, we will continue to use minimal traits, as this encourages best practices and provides readers with a clear reference for idiomatic CGP usage.
+Ultimately, CGP does not prevent you from defining multiple accessor methods into one trait, or even mix the trait with other items such as associated types or non-getter methods. It is your own decision of how to design CGP traits. Just keep in mind that it is common in CGP to see accessor traits that each contain only one getter method.
 
 ## Implementing Accessor Providers
 

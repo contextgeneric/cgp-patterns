@@ -491,9 +491,27 @@ impl<Context> AuthTokenTypeProvider<Context> for UseStringAuthToken {
 
 ## Comparison to Newtype Pattern
 
-Abstract types serve as an alternative to the newtype pattern. Compared to the newtype pattern, we can use plain `String` values directly, without wrapping them in a newtype struct. Contrary to common wisdom, in CGP, we place less emphasis on wrapping every domain type in a newtype. This is particularly true when most of the application is written in a context-generic style. The rationale is that abstract types and their accompanying interfaces already fulfill the role of newtypes by encapsulating and "protecting" raw values, reducing the need for additional wrapping.
+Let's talk about abstract types and how they compare to the well-known newtype pattern in Rust. Abstract types provide a compelling alternative.
 
-Ultimately, there is no right or wrong whether one should use abstract types, new types, or both together. It is up to your own preference, experience, and requirements, to decide which approach is best suited for you. Just take note that abstract types will be a commonly used pattern in CGP, particularly in this book.
+A key difference is that abstract types often allow you to work directly with plain, convenient types like `String`, whereas the newtype pattern typically requires wrapping your value within a dedicated struct.
+
+Within the CGP philosophy, we lean towards a different approach than the common advice to strictly newtype *every* domain concept. This is particularly true when you're writing highly context-generic code.
+
+The reason is simple: abstract types, defined by traits that specify their required behavior and structure, effectively provide the same level of encapsulation and type safety that newtypes offer. They protect the underlying raw values through their defined interfaces, often making the extra layer of newtype wrapping unnecessary boilerplate.
+
+The choice between abstract types, newtypes, or using both together isn't about a rigid "right" or "wrong." It's a flexible decision based on your specific project requirements, team conventions, and personal preference – choosing the best tool for the job at hand.
+
+Just keep in mind that abstract types are a core and widely used pattern in the CGP ecosystem, and you'll see them frequently demonstrated throughout this book.
+
+## Comparison to Newtype Pattern
+
+Abstract types serve as an alternative to the newtype pattern. Compared to the newtype pattern, we can use plain `String` values directly, without wrapping them in a newtype struct.
+
+Contrary to common wisdom, in CGP, we place less emphasis on wrapping every domain type in a newtype. This is particularly true when most of the application is written in a context-generic style. The reason is simple: abstract types, when used within generic code, effectively provide the same level of encapsulation and type safety that newtypes offer. They protect the underlying raw values through their defined interfaces, often making the extra layer of newtype wrapping unnecessary boilerplate.
+
+The choice between abstract types, newtypes, or using both together isn't about a rigid "right" or "wrong." It's a flexible decision based on your specific project requirements, team conventions, and personal preference – choosing the best tool for the job at hand.
+
+Just keep in mind that abstract types are a core and widely used pattern in the CGP ecosystem, and you'll see them frequently demonstrated throughout this book.
 
 ## The `UseType` Pattern
 
