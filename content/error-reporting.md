@@ -39,18 +39,12 @@ and then format them as a string before raising it as an error:
 #
 # use cgp::prelude::*;
 #
-# #[cgp_component {
-#     name: TimeTypeComponent,
-#     provider: ProvideTimeType,
-# }]
+# #[cgp_type]
 # pub trait HasTimeType {
-#     type Time;
+#     type Time: Eq + Ord;
 # }
 #
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
+# #[cgp_type]
 # pub trait HasAuthTokenType {
 #     type AuthToken;
 # }
@@ -79,8 +73,7 @@ and then format them as a string before raising it as an error:
 #     fn current_time(&self) -> Result<Self::Time, Self::Error>;
 # }
 #
-pub struct ValidateTokenIsNotExpired;
-
+#[cgp_new_provider]
 impl<Context> AuthTokenValidator<Context> for ValidateTokenIsNotExpired
 where
     Context: HasCurrentTime + CanFetchAuthTokenExpiry + for<'a> CanRaiseError<String>,
@@ -129,18 +122,12 @@ generating a good error report:
 #
 # use cgp::prelude::*;
 #
-# #[cgp_component {
-#     name: TimeTypeComponent,
-#     provider: ProvideTimeType,
-# }]
+# #[cgp_type]
 # pub trait HasTimeType {
-#     type Time;
+#     type Time: Eq + Ord;
 # }
 #
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
+# #[cgp_type]
 # pub trait HasAuthTokenType {
 #     type AuthToken;
 # }
@@ -175,18 +162,12 @@ default way to format `ErrAuthTokenHasExpired` as string:
 #
 # use cgp::prelude::*;
 #
-# #[cgp_component {
-#     name: TimeTypeComponent,
-#     provider: ProvideTimeType,
-# }]
+# #[cgp_type]
 # pub trait HasTimeType {
-#     type Time;
+#     type Time: Eq + Ord;
 # }
 #
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
+# #[cgp_type]
 # pub trait HasAuthTokenType {
 #     type AuthToken;
 # }
@@ -244,18 +225,12 @@ as follows:
 #
 # use cgp::prelude::*;
 #
-# #[cgp_component {
-#     name: TimeTypeComponent,
-#     provider: ProvideTimeType,
-# }]
+# #[cgp_type]
 # pub trait HasTimeType {
-#     type Time;
+#     type Time: Eq + Ord;
 # }
 #
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
+# #[cgp_type]
 # pub trait HasAuthTokenType {
 #     type AuthToken;
 # }
@@ -309,8 +284,7 @@ as follows:
 #     }
 # }
 #
-pub struct ValidateTokenIsNotExpired;
-
+#[cgp_new_provider]
 impl<Context> AuthTokenValidator<Context> for ValidateTokenIsNotExpired
 where
     Context: HasCurrentTime
@@ -369,11 +343,11 @@ implementation to and raise it using `DebugError`:
 ```rust
 # extern crate cgp;
 #
-use cgp::core::error::{CanRaiseError, ErrorRaiser};
+use cgp::prelude::*;
+use cgp::core::error::{ErrorRaiser, ErrorRaiserComponent};
 use core::fmt::Debug;
 
-pub struct DebugError;
-
+#[cgp_new_provider]
 impl<Context, SourceError> ErrorRaiser<Context, SourceError> for DebugError
 where
     Context: CanRaiseError<String>,
@@ -402,19 +376,19 @@ instance as follows:
 # use core::fmt::Display;
 #
 # use cgp::prelude::*;
-# use cgp::core::error::ErrorRaiser;
+# use cgp::core::error::{ErrorRaiser, ErrorRaiserComponent};
 #
 # #[cgp_component {
-#     name: TimeTypeComponent,
-#     provider: ProvideTimeType,
+#     name: TimeTypeProviderComponent,
+#     provider: TimeTypeProvider,
 # }]
 # pub trait HasTimeType {
 #     type Time;
 # }
 #
 # #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
+#     name: AuthTokenTypeProviderComponent,
+#     provider: AuthTokenTypeProvider,
 # }]
 # pub trait HasAuthTokenType {
 #     type AuthToken;
@@ -430,8 +404,7 @@ instance as follows:
 #     pub expiry_time: &'a Context::Time,
 # }
 #
-pub struct DisplayAuthTokenExpiredError;
-
+#[cgp_new_provider]
 impl<'a, Context> ErrorRaiser<Context, ErrAuthTokenHasExpired<'a, Context>>
     for DisplayAuthTokenExpiredError
 where
@@ -465,21 +438,15 @@ But in case if it does not, we can still do something similar using a customized
 # use core::fmt::Display;
 #
 # use cgp::prelude::*;
-# use cgp::core::error::ErrorRaiser;
+# use cgp::core::error::{ErrorRaiser, ErrorRaiserComponent};
 use sha1::{Digest, Sha1};
 
-# #[cgp_component {
-#     name: TimeTypeComponent,
-#     provider: ProvideTimeType,
-# }]
+# #[cgp_type]
 # pub trait HasTimeType {
-#     type Time;
+#     type Time: Eq + Ord;
 # }
 #
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
+# #[cgp_type]
 # pub trait HasAuthTokenType {
 #     type AuthToken;
 # }
@@ -494,8 +461,7 @@ use sha1::{Digest, Sha1};
 #     pub expiry_time: &'a Context::Time,
 # }
 #
-pub struct ShowAuthTokenExpiredError;
-
+#[cgp_new_provider]
 impl<'a, Context> ErrorRaiser<Context, ErrAuthTokenHasExpired<'a, Context>>
     for ShowAuthTokenExpiredError
 where
@@ -538,21 +504,15 @@ as follows:
 # use core::fmt::Display;
 #
 # use cgp::prelude::*;
-# use cgp::core::error::ErrorRaiser;
+# use cgp::core::error::{ErrorRaiser, ErrorRaiserComponent};
 use sha1::{Digest, Sha1};
 
-# #[cgp_component {
-#     name: TimeTypeComponent,
-#     provider: ProvideTimeType,
-# }]
+# #[cgp_type]
 # pub trait HasTimeType {
-#     type Time;
+#     type Time: Eq + Ord;
 # }
 #
-# #[cgp_component {
-#     name: AuthTokenTypeComponent,
-#     provider: ProvideAuthTokenType,
-# }]
+# #[cgp_type]
 # pub trait HasAuthTokenType {
 #     type AuthToken;
 # }
@@ -567,15 +527,12 @@ use sha1::{Digest, Sha1};
 #     pub expiry_time: &'a Context::Time,
 # }
 #
-#[cgp_component {
-    provider: DocumentIdGetter,
-}]
+#[cgp_component(DocumentIdGetter)]
 pub trait HasDocumentId {
     fn document_id(&self) -> u64;
 }
 
-pub struct ShowAuthTokenExpiredError;
-
+#[cgp_new_provider]
 impl<'a, Context> ErrorRaiser<Context, ErrAuthTokenHasExpired<'a, Context>>
     for ShowAuthTokenExpiredError
 where

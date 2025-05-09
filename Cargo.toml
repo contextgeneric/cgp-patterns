@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cgp                 = { version = "0.3.0" }
-cgp-error-anyhow    = { version = "0.3.0" }
+cgp                 = { version = "0.4.0" }
+cgp-error-anyhow    = { version = "0.4.0" }
 serde               = { version = "1", features = ["derive"] }
 reqwest             = { version = "0.12.12", features = [ "blocking", "json" ] }
 itertools           = { version = "0.14.0" }
@@ -21,12 +21,10 @@ sha1                = { version = "0.10.6" }
 # cgp-async                   = { git = "https://github.com/contextgeneric/cgp.git" }
 # cgp-async-macro             = { git = "https://github.com/contextgeneric/cgp.git" }
 # cgp-component               = { git = "https://github.com/contextgeneric/cgp.git" }
-# cgp-component-macro         = { git = "https://github.com/contextgeneric/cgp.git" }
-# cgp-component-macro-lib     = { git = "https://github.com/contextgeneric/cgp.git" }
+# cgp-macro                   = { git = "https://github.com/contextgeneric/cgp.git" }
+# cgp-macro-lib               = { git = "https://github.com/contextgeneric/cgp.git" }
 # cgp-type                    = { git = "https://github.com/contextgeneric/cgp.git" }
 # cgp-field                   = { git = "https://github.com/contextgeneric/cgp.git" }
-# cgp-field-macro             = { git = "https://github.com/contextgeneric/cgp.git" }
-# cgp-field-macro-lib         = { git = "https://github.com/contextgeneric/cgp.git" }
 # cgp-error                   = { git = "https://github.com/contextgeneric/cgp.git" }
 # cgp-error-extra             = { git = "https://github.com/contextgeneric/cgp.git" }
 # cgp-error-anyhow            = { git = "https://github.com/contextgeneric/cgp.git" }

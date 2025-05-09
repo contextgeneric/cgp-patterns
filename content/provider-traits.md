@@ -202,7 +202,7 @@ assert_eq!(
 
 Our `Person` struct is defined with both `Debug` and `Display` implementations.
 When using `format_string` on a value `person: Person`, we cannot just call
-`person.format_string()`. Instead, we have to explicitly pick a provider `Provider`,
+`person.format_string()`. Instead, we have to explicitly pick a provider `CgpProvider`,
 and call it with `Provider::format_string(&person)`.
 On the other hand, thanks to the explicit syntax, we can use both `FormatStringWithDisplay`
 and `FormatStringWithDebug` on `Person` without any issue.

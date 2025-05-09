@@ -11,12 +11,17 @@ Suppose our application needs to make API calls to an external service to read m
 #
 use cgp::prelude::*;
 
-cgp_type!( Message );
-cgp_type!( MessageId );
+#[cgp_type]
+pub trait HasMessageType {
+    type Message;
+}
 
-#[cgp_component {
-    provider: MessageQuerier,
-}]
+#[cgp_type]
+pub trait HasMessageIdType {
+    type MessageId;
+}
+
+#[cgp_component(MessageQuerier)]
 pub trait CanQueryMessage: HasMessageIdType + HasMessageType + HasErrorType {
     fn query_message(&self, message_id: &Self::MessageId) -> Result<Self::Message, Self::Error>;
 }
@@ -36,18 +41,21 @@ use reqwest::blocking::Client;
 use reqwest::StatusCode;
 use serde::Deserialize;
 #
-# cgp_type!( Message );
-# cgp_type!( MessageId );
+# #[cgp_type]
+# pub trait HasMessageType {
+#     type Message;
+# }
 #
-# #[cgp_component {
-#     provider: MessageQuerier,
-# }]
+# #[cgp_type]
+# pub trait HasMessageIdType {
+#     type MessageId;
+# }
+#
+# #[cgp_component(MessageQuerier)]
 # pub trait CanQueryMessage: HasMessageIdType + HasMessageType + HasErrorType {
 #     fn query_message(&self, message_id: &Self::MessageId) -> Result<Self::Message, Self::Error>;
 # }
 #
-pub struct ReadMessageFromApi;
-
 #[derive(Debug)]
 pub struct ErrStatusCode {
     pub status_code: StatusCode,
@@ -58,6 +66,7 @@ pub struct ApiMessageResponse {
     pub message: String,
 }
 
+#[cgp_new_provider]
 impl<Context> MessageQuerier<Context> for ReadMessageFromApi
 where
     Context: HasMessageIdType<MessageId = u64>
@@ -105,9 +114,7 @@ In CGP, defining an accessor trait to retrieve values from the context is straig
 #
 # use cgp::prelude::*;
 #
-#[cgp_component {
-    provider: ApiBaseUrlGetter,
-}]
+#[cgp_component(ApiBaseUrlGetter)]
 pub trait HasApiBaseUrl {
     fn api_base_url(&self) -> &String;
 }
@@ -127,24 +134,25 @@ Next, we can include the `HasApiBaseUrl` trait within `ReadMessageFromApi`, allo
 # use reqwest::StatusCode;
 # use serde::Deserialize;
 #
-# cgp_type!( Message );
-# cgp_type!( MessageId );
+# #[cgp_type]
+# pub trait HasMessageType {
+#     type Message;
+# }
 #
-# #[cgp_component {
-#     provider: MessageQuerier,
-# }]
+# #[cgp_type]
+# pub trait HasMessageIdType {
+#     type MessageId;
+# }
+#
+# #[cgp_component(MessageQuerier)]
 # pub trait CanQueryMessage: HasMessageIdType + HasMessageType + HasErrorType {
 #     fn query_message(&self, message_id: &Self::MessageId) -> Result<Self::Message, Self::Error>;
 # }
 #
-# #[cgp_component {
-#     provider: ApiBaseUrlGetter,
-# }]
+# #[cgp_component(ApiBaseUrlGetter)]
 # pub trait HasApiBaseUrl {
 #     fn api_base_url(&self) -> &String;
 # }
-#
-# pub struct ReadMessageFromApi;
 #
 # #[derive(Debug)]
 # pub struct ErrStatusCode {
@@ -156,6 +164,7 @@ Next, we can include the `HasApiBaseUrl` trait within `ReadMessageFromApi`, allo
 #     pub message: String,
 # }
 #
+#[cgp_new_provider]
 impl<Context> MessageQuerier<Context> for ReadMessageFromApi
 where
     Context: HasMessageIdType<MessageId = u64>
@@ -195,11 +204,12 @@ Just as we did with `HasApiBaseUrl`, we can define a `HasAuthToken` trait to ret
 #
 # use cgp::prelude::*;
 #
-cgp_type!( AuthToken );
+#[cgp_type]
+pub trait HasAuthTokenType {
+    type AuthToken;
+}
 
-#[cgp_component {
-    provider: AuthTokenGetter,
-}]
+#[cgp_component(AuthTokenGetter)]
 pub trait HasAuthToken: HasAuthTokenType {
     fn auth_token(&self) -> &Self::AuthToken;
 }
@@ -221,13 +231,22 @@ Next, we define a getter trait, `HasAuthToken`, which provides access to an abst
 # use reqwest::StatusCode;
 # use serde::Deserialize;
 #
-# cgp_type!( Message );
-# cgp_type!( MessageId );
-# cgp_type!( AuthToken );
+# #[cgp_type]
+# pub trait HasMessageType {
+#     type Message;
+# }
 #
-# #[cgp_component {
-#     provider: MessageQuerier,
-# }]
+# #[cgp_type]
+# pub trait HasMessageIdType {
+#     type MessageId;
+# }
+#
+# #[cgp_type]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
+#
+# #[cgp_component(MessageQuerier)]
 # pub trait CanQueryMessage: HasMessageIdType + HasMessageType + HasErrorType {
 #     fn query_message(&self, message_id: &Self::MessageId) -> Result<Self::Message, Self::Error>;
 # }
@@ -246,8 +265,6 @@ Next, we define a getter trait, `HasAuthToken`, which provides access to an abst
 #     fn auth_token(&self) -> &Self::AuthToken;
 # }
 #
-# pub struct ReadMessageFromApi;
-#
 # #[derive(Debug)]
 # pub struct ErrStatusCode {
 #     pub status_code: StatusCode,
@@ -258,6 +275,7 @@ Next, we define a getter trait, `HasAuthToken`, which provides access to an abst
 #     pub message: String,
 # }
 #
+#[cgp_new_provider]
 impl<Context> MessageQuerier<Context> for ReadMessageFromApi
 where
     Context: HasMessageIdType<MessageId = u64>
@@ -294,20 +312,23 @@ where
 
 In this updated code, we use the [`bearer_auth`](https://docs.rs/reqwest/latest/reqwest/blocking/struct.RequestBuilder.html#method.bearer_auth) method from the `reqwest` library to include the authentication token in the HTTP header. In this case, the provider only requires that `Context::AuthToken` implement the `Display` trait, allowing it to work with custom `AuthToken` types, not limited to `String`.
 
-## Accessor Method Minimalism
+## Traits with Multiple Getter Methods
 
-When creating providers like `ReadMessageFromApi`, which often need to use both `HasApiBaseUrl` and `HasAuthToken`, it might seem tempting to combine these two traits into a single one, containing both accessor methods:
+As you build providers that need access to various pieces of data – like a `ReadMessageFromApi` provider that requires both an `api_base_url` and an `auth_token` – you might initially consider grouping these accessors into a single trait.
+
+Here's an example of how you *could* define a trait with multiple getter methods for API client fields:
 
 ```rust
 # extern crate cgp;
 #
 # use cgp::prelude::*;
 #
-# cgp_type!( AuthToken );
+# #[cgp_type]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
 #
-#[cgp_component {
-    provider: ApiClientFieldsGetter,
-}]
+#[cgp_component(ApiClientFieldsGetter)]
 pub trait HasApiClientFields: HasAuthTokenType {
     fn api_base_url(&self) -> &String;
 
@@ -315,43 +336,16 @@ pub trait HasApiClientFields: HasAuthTokenType {
 }
 ```
 
-While this approach works, it introduces unnecessary coupling between the `api_base_url` and `auth_token` fields. If a provider only requires `api_base_url` but not `auth_token`, it would still need to include the unnecessary `auth_token` dependency. Additionally, this design prevents us from implementing separate providers that could provide the `api_base_url` and `auth_token` fields independently, each with its own logic.
 
-This coupling also makes future changes more challenging. For example, if we switch to a different authentication method, like public key cryptography, we would need to remove the auth_token method and replace it with a new one. This change would affect all code dependent on `HasApiClientFields`. Instead, it's much easier to add a new getter trait and gradually transition providers to the new trait while keeping the old one intact.
+While this approach is syntactically valid, it introduces unnecessary coupling. If a provider only needs the `api_base_url`, it still inherits a dependency on the `auth_token`. This could potentially impact modularity and reusability.
 
-As applications grow in complexity, it’s common to need many accessor methods. A trait like `HasApiClientFields`, with dozens of methods, could quickly become a bottleneck, making the application harder to evolve. Moreover, it's often unclear upfront which accessor methods are related, and trying to theorize about logical groupings can be a distraction.
+Furthermore, this design prevents you from defining separate, independent providers for `api_base_url` and `auth_token`, each potentially with its own distinct logic for obtaining that data.
 
-From real-world experience using CGP, we’ve found that defining one accessor method per trait is the most effective approach for rapidly iterating on application development. This method simplifies the process of adding or removing accessor methods and reduces cognitive overload, as developers don’t need to spend time deciding or debating which method should belong to which trait. Over time, it's almost inevitable that a multi-method accessor trait will need to be broken up as some methods become irrelevant to parts of the application.
+Traits containing only one method also unlock powerful patterns like the [`UseField`](./use-field-pattern.md) pattern (which we'll introduce later). This pattern significantly simplifies the boilerplate required to implement accessor traits and enables the creation of reusable accessor providers.
 
-In future chapters, we’ll explore how breaking accessor methods down into individual traits can enable new design patterns that work well with single-method traits.
+Ultimately, CGP provides the flexibility to design your traits in a way that suits your needs. You are not strictly prevented from defining multiple accessor methods within a single trait, or even mixing getters with associated types or other methods.
 
-However, CGP doesn’t prevent developers from creating accessor traits with multiple methods and types. For those new to CGP, it might feel more comfortable to define non-minimal traits, as this has been a mainstream practice in programming for decades. So, feel free to experiment and include as many types and methods in a CGP trait as you prefer.
-
-As an alternative to defining multiple accessor methods, you could define an inner struct containing all the common fields you’ll use across most providers:
-
-```rust
-# extern crate cgp;
-#
-# use cgp::prelude::*;
-#
-pub struct ApiClientFields {
-    pub api_base_url: String,
-    pub auth_token: String,
-}
-
-#[cgp_component {
-    provider: ApiClientFieldsGetter,
-}]
-pub trait HasApiClientFields {
-    fn api_client_fields(&self) -> &ApiClientFields;
-}
-```
-
-In this example, we define an `ApiClientFields` struct that groups both the `api_base_url` and `auth_token` fields. The `HasApiClientFields` trait now only needs one getter method, returning the `ApiClientFields` struct.
-
-One downside to this approach is that we can no longer use abstract types within the struct. For instance, the `ApiClientFields` struct stores the `auth_token` as a concrete `String` rather than as an abstract `AuthToken` type. As a result, this approach works best when your providers don’t rely on abstract types for their fields.
-
-For the purposes of this book, we will continue to use minimal traits, as this encourages best practices and provides readers with a clear reference for idiomatic CGP usage.
+However, you may find that defining accessor traits that each contain only one getter method is a frequently used pattern, often chosen for its potential benefits in modularity, reusability, and compatibility with helper patterns like UseField. You'll see this pattern frequently demonstrated throughout this book.
 
 ## Implementing Accessor Providers
 
@@ -370,20 +364,29 @@ as follows:
 #
 # use cgp::core::component::UseDelegate;
 # use cgp::extra::error::RaiseFrom;
-# use cgp::core::error::{ErrorRaiserComponent, ErrorTypeComponent};
+# use cgp::core::error::{ErrorRaiserComponent, ErrorTypeProviderComponent};
 # use cgp::prelude::*;
 # use cgp_error_anyhow::{DebugAnyhowError, UseAnyhowError};
 # use reqwest::blocking::Client;
 # use reqwest::StatusCode;
 # use serde::Deserialize;
 #
-# cgp_type!( Message );
-# cgp_type!( MessageId );
-# cgp_type!( AuthToken );
+# #[cgp_type]
+# pub trait HasMessageType {
+#     type Message;
+# }
 #
-# #[cgp_component {
-#     provider: MessageQuerier,
-# }]
+# #[cgp_type]
+# pub trait HasMessageIdType {
+#     type MessageId;
+# }
+#
+# #[cgp_type]
+# pub trait HasAuthTokenType {
+#     type AuthToken;
+# }
+#
+# #[cgp_component(MessageQuerier)]
 # pub trait CanQueryMessage: HasMessageIdType + HasMessageType + HasErrorType {
 #     fn query_message(&self, message_id: &Self::MessageId) -> Result<Self::Message, Self::Error>;
 # }
@@ -402,8 +405,6 @@ as follows:
 #     fn auth_token(&self) -> &Self::AuthToken;
 # }
 #
-# pub struct ReadMessageFromApi;
-#
 # #[derive(Debug)]
 # pub struct ErrStatusCode {
 #     pub status_code: StatusCode,
@@ -414,6 +415,7 @@ as follows:
 #     pub message: String,
 # }
 #
+# #[cgp_new_provider]
 # impl<Context> MessageQuerier<Context> for ReadMessageFromApi
 # where
 #     Context: HasMessageIdType<MessageId = u64>
@@ -447,43 +449,44 @@ as follows:
 #     }
 # }
 #
+#[cgp_context]
 pub struct ApiClient {
     pub api_base_url: String,
     pub auth_token: String,
 }
 
-pub struct ApiClientComponents;
-
-pub struct RaiseApiErrors;
-
-impl HasComponents for ApiClient {
-    type Components = ApiClientComponents;
-}
-
 delegate_components! {
     ApiClientComponents {
-        ErrorTypeComponent: UseAnyhowError,
-        ErrorRaiserComponent: UseDelegate<RaiseApiErrors>,
-        MessageIdTypeComponent: UseType<u64>,
-        MessageTypeComponent: UseType<String>,
-        AuthTokenTypeComponent: UseType<String>,
-        MessageQuerierComponent: ReadMessageFromApi,
+        ErrorTypeProviderComponent:
+            UseAnyhowError,
+        ErrorRaiserComponent:
+            UseDelegate<RaiseApiErrors>,
+        MessageIdTypeProviderComponent:
+            UseType<u64>,
+        MessageTypeProviderComponent:
+            UseType<String>,
+        AuthTokenTypeProviderComponent:
+            UseType<String>,
+        MessageQuerierComponent:
+            ReadMessageFromApi,
     }
 }
 
 delegate_components! {
-    RaiseApiErrors {
+    new RaiseApiErrors {
         reqwest::Error: RaiseFrom,
         ErrStatusCode: DebugAnyhowError,
     }
 }
 
+#[cgp_provider]
 impl ApiBaseUrlGetter<ApiClient> for ApiClientComponents {
     fn api_base_url(api_client: &ApiClient) -> &String {
         &api_client.api_base_url
     }
 }
 
+#[cgp_provider]
 impl AuthTokenGetter<ApiClient> for ApiClientComponents {
     fn auth_token(api_client: &ApiClient) -> &String {
         &api_client.auth_token
