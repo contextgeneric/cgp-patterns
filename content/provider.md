@@ -23,7 +23,7 @@ The block `impl HasName for Person` is a _provider_ of the `HasName` trait
 for the `Person` context.
 
 Similar to the concept of a consumer, the use of provider is common in any
-Rust code that implements a trait. However, compared to cosumers, there
+Rust code that implements a trait. However, compared to consumers, there
 are limitations on how providers can be defined in Rust.
 
 For this example, the `impl` block is a _context-specific_ provider for the
@@ -32,9 +32,9 @@ there can be at most one provider of `HasName` for the `Person` context.
 Another common restriction is that the provider has to be defined in the same
 crate as either the trait or the context.
 
-The asymetry between what can be done with a provider, as compared to a consumer,
+The asymmetry between what can be done with a provider, as compared to a consumer,
 is often a source of complexity in many Rust programs. As we will learn in later chapters,
-one of the goals of CGP is to break this asymetry, and make it easy to implement
+one of the goals of CGP is to break this asymmetry, and make it easy to implement
 _context-generic providers_.
 
 ## Providers as Consumers
