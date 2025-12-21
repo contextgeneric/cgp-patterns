@@ -60,7 +60,6 @@ On the other hand, this book is primarily intended for those who wish to gain a 
 It will also be a valuable resource for users encountering CGP-related error messages, providing the knowledge needed to understand the root cause and fix issues more effectively.
 
 For beginners looking for a faster start, a separate book is planned for the future, which will provide more beginner-friendly tutorials focused on quickly getting started with CGP.
-book will be written in the future, to provide beginner-friendly tutorials for getting started with CGP more quickly.
 
 ## Chapter Outlines
 
