@@ -218,7 +218,7 @@ such feature has to be carefully considered to ensure that no inconsistency can 
 
 Due to potential conflicting implementations, the use of blanket implementations offer
 limited customizability, in case if a context wants to have a different implementation.
-Although a context many define its own context-specific provider to override the blanket
+Although a context may define its own context-specific provider to override the blanket
 provider, it would face other limitations such as not being able to implement other traits
 that may cause a conflict.
 
