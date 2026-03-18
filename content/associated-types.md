@@ -329,7 +329,7 @@ Fortunately, CGP allows us to apply the same principle of impl-side dependencies
 #
 #[cgp_type]
 pub trait HasTimeType {
-    type Time: Eq + Ord;
+    type Time;
 }
 #
 # #[cgp_type]
