@@ -503,16 +503,6 @@ The choice between abstract types, newtypes, or using both together isn't about 
 
 Just keep in mind that abstract types are a core and widely used pattern in the CGP ecosystem, and you'll see them frequently demonstrated throughout this book.
 
-## Comparison to Newtype Pattern
-
-Abstract types serve as an alternative to the newtype pattern. Compared to the newtype pattern, we can use plain `String` values directly, without wrapping them in a newtype struct.
-
-Contrary to common wisdom, in CGP, we place less emphasis on wrapping every domain type in a newtype. This is particularly true when most of the application is written in a context-generic style. The reason is simple: abstract types, when used within generic code, effectively provide the same level of encapsulation and type safety that newtypes offer. They protect the underlying raw values through their defined interfaces, often making the extra layer of newtype wrapping unnecessary boilerplate.
-
-The choice between abstract types, newtypes, or using both together isn't about a rigid "right" or "wrong." It's a flexible decision based on your specific project requirements, team conventions, and personal preference – choosing the best tool for the job at hand.
-
-Just keep in mind that abstract types are a core and widely used pattern in the CGP ecosystem, and you'll see them frequently demonstrated throughout this book.
-
 ## The `UseType` Pattern
 
 Implementing type providers can quickly become repetitive as the number of abstract types grows. For example, to use `String` as the `AuthToken` type, we first need to define a new struct, `UseStringAuthToken`, and then implement `AuthTokenTypeProvider` for it. To streamline this process, the `cgp_type!` macro simplifies the implementation by automatically generating a provider using the _`UseType`_ pattern. The generated implementation looks like this:
