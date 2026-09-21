@@ -6,7 +6,7 @@ to be implemented and composed in a modular, generic, and type-safe way.
 
 ## What is Context-Generic Programming
 
-A high level overview of CGP is available on the [project website](https://www.contextgeneric.dev/).
+A high level overview of CGP is available on the [project website](https://contextgeneric.dev/).
 This section contains a summarized version of the overview.
 
 At its core, CGP makes use of Rust's trait system to build generic
@@ -40,10 +40,23 @@ make that learning process more approachable.
 Thoughout this book, we will slowly understand how CGP works, and learn about
 useful design patterns that can be used in any programming situation.
 
-## Work In Progress
+## The State of This Book
 
-This book is currently a work in progress. A majority of the chapter is yet to be written.
-Please come back later to check out a completed version of this book.
+This book was last revised for CGP v0.4.0, and the library has moved on since.
+What that means for you depends on which chapter you are reading.
+
+The _Terminology_ and _Core Concepts_ sections, up to and including _Provider Traits_,
+explain the ideas using ordinary Rust traits and implementations.
+They do not depend on a particular CGP release, and they remain accurate.
+
+The chapters after those show CGP's macros and its wiring, and they predate several changes
+to that syntax. Read them for the ideas rather than for the code, and check anything you intend
+to write against the [documentation on the project website](https://contextgeneric.dev/docs/),
+which tracks the current release.
+
+The entries listed in the table of contents without a link were never written, and most of what
+they planned has since been written on the website instead. That is the place to look for the
+current explanations and reference material.
 
 ## Who This Book Is For
 
@@ -59,8 +72,7 @@ On the other hand, this book is primarily intended for those who wish to gain a 
 
 It will also be a valuable resource for users encountering CGP-related error messages, providing the knowledge needed to understand the root cause and fix issues more effectively.
 
-For beginners looking for a faster start, a separate book is planned for the future, which will provide more beginner-friendly tutorials focused on quickly getting started with CGP.
-book will be written in the future, to provide beginner-friendly tutorials for getting started with CGP more quickly.
+For beginners looking for a faster start, the [tutorials on the project website](https://contextgeneric.dev/docs/tutorials/hello) are the shorter path.
 
 ## Chapter Outlines
 
